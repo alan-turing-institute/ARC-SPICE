@@ -27,7 +27,12 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "transformers",
+  "huggingface",
+  "datasets",
+  "numpy"
+]
 
 [project.optional-dependencies]
 dev = [
