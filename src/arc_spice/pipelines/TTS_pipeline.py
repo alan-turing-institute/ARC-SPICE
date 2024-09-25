@@ -28,9 +28,11 @@ class TTSpipeline:
 
     def print_pipeline(self):
         """Print the models in the pipeline"""
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         print(f"Transcriber model: {self.pars['transcriber']['model']}")
         print(f"Translator model: {self.pars['translator']['model']}")
         print(f"Summariser model: {self.pars['summariser']['model']}")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     def run_pipeline(self, x):
         """Run the pipeline on an input x"""
@@ -43,5 +45,9 @@ class TTSpipeline:
 
     def print_results(self):
         """Print the results for quick scanning"""
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         for key, val in self.results.items():
+            print("-------------")
             print(f"{key} result is: \n {val}")
+        print("-------------")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
