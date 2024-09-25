@@ -32,7 +32,9 @@ dependencies = [
   "huggingface",
   "datasets",
   "numpy",
-  "sentencepiece"
+  "sentencepiece",
+  "librosa",
+  "soundfile"
 ]
 
 [project.optional-dependencies]

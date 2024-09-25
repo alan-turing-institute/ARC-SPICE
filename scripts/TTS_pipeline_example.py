@@ -2,6 +2,7 @@
     An example use of the transcription, translation and summarisation pipeline.
 """
 
+import numpy as np
 from datasets import Audio, load_dataset
 
 from arc_spice.pipelines.TTS_pipeline import TTSpipeline
@@ -15,8 +16,14 @@ def main(TTS_params):
         "facebook/multilingual_librispeech", "french", split="test", streaming=True
     )
     ds = ds.cast_column("audio", Audio(sampling_rate=16_000))
-    input_speech = next(iter(ds))["audio"]
-    TTS.run_pipeline(input_speech["array"])
+    arrays = []
+    n = 5
+    for idx, data in enumerate(iter(ds)):
+        arrays.append(data["audio"]["array"])
+        if idx == n:
+            break
+    arrays = np.concatenate(arrays)
+    TTS.run_pipeline(arrays)
     TTS.print_results()
 
 
