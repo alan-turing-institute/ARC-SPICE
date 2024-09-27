@@ -16,14 +16,15 @@ def main(TTS_params):
         "facebook/multilingual_librispeech", "french", split="test", streaming=True
     )
     ds = ds.cast_column("audio", Audio(sampling_rate=16_000))
-    arrays = []
-    n = 5
-    for idx, data in enumerate(iter(ds)):
-        arrays.append(data["audio"]["array"])
-        if idx == n:
-            break
-    arrays = np.concatenate(arrays)
-    TTS.run_pipeline(arrays)
+    input_speech = next(iter(ds))["audio"]
+    # arrays = []
+    # n = 5
+    # for idx, data in enumerate(iter(ds)):
+    #     arrays.append(data["audio"]["array"])
+    #     if idx == n:
+    #         break
+    # arrays = np.concatenate(arrays)
+    TTS.run_pipeline(input_speech["array"])
     TTS.print_results()
 
 
