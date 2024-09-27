@@ -1,17 +1,19 @@
-from src.arc_spice.dropout_utils.dropout_pipeline import MCDropoutPipeline
+from transformers import pipeline
+
+from src.arc_spice.dropout_utils.dropout_pipeline import MCDropoutPipeline, set_dropout
 
 
 class VariationalPipeline:
 
     def __init__(self, pars: dict[str : dict[str:str]]):
-        self.transcriber = MCDropoutPipeline(
+        self.transcriber = pipeline(
             task=pars["transcriber"]["specific_task"],
             model=pars["transcriber"]["model"],
         )
-        self.translator = MCDropoutPipeline(
+        self.translator = pipeline(
             task=pars["translator"]["specific_task"], model=pars["translator"]["model"]
         )
-        self.summariser = MCDropoutPipeline(
+        self.summariser = pipeline(
             task=pars["summariser"]["specific_task"], model=pars["summariser"]["model"]
         )
 
