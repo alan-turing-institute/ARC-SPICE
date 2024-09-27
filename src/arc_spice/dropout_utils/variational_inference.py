@@ -56,19 +56,3 @@ class TTSVariationalPipeline:
             pipeline.model = set_dropout(pipeline.model, False)
 
         return output
-
-
-TTS_pars = {
-    "transcriber": {
-        "specific_task": "automatic-speech-recognition",
-        "model": "openai/whisper-small",
-    },
-    "translator": {
-        "specific_task": "translation_fr_to_en",
-        "model": "facebook/mbart-large-50-many-to-many-mmt",
-    },
-    "summariser": {
-        "specific_task": "summarization",
-        "model": "facebook/bart-large-cnn",
-    },
-}
