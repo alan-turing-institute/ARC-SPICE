@@ -31,7 +31,10 @@ dependencies = [
   "transformers",
   "huggingface",
   "datasets",
-  "numpy"
+  "numpy",
+  "sentencepiece",
+  "librosa",
+  "soundfile"
 ]
 
 [project.optional-dependencies]
