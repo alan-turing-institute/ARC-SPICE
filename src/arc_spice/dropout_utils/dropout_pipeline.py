@@ -1,24 +1,20 @@
 import torch
-from transformers import pipeline
+from transformers import Pipeline, pipeline
 
 
-def set_dropout(model, dropout_flag: bool) -> torch.nn.Module:
+def set_dropout(model: torch.nn.Module, dropout_flag: bool) -> None:
     """
     Turn on or turn off dropout layers of a model.
 
     Args:
         model: pytorch model
         dropout_flag: dropout -> True/False
-
-    Returns:
-        model: pytorch model with dropout set to desired value throughout
     """
     for _, param in model.named_modules():
         if isinstance(param, torch.nn.Dropout):
             # dropout on (True) -> want training mode train(True)
             # dropout off (False) -> eval mode train(False)
             param.train(dropout_flag)
-    return model
 
 
 def MCDropoutPipeline(task: str, model: str):
@@ -31,8 +27,12 @@ def MCDropoutPipeline(task: str, model: str):
     return pl
 
 
-def test_dropout(pipe):
+def test_dropout(pipe: Pipeline, dropout_flag: bool):
     model = pipe.model
-    for name, param in model.named_modules():
+    dropout_count = 0
+    for _, param in model.named_modules():
         if isinstance(param, torch.nn.Dropout):
-            print(name, param.training)
+            dropout_count += 1
+            assert param.training == dropout_flag
+
+    print(f"{dropout_count} dropout layers found in correct configuration.")
