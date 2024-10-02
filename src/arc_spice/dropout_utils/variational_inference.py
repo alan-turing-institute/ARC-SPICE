@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, Optional
+from typing import Union
 
 import numpy as np
 import torch
@@ -15,10 +15,26 @@ from transformers import (
 from arc_spice.dropout_utils.dropout_pipeline import set_dropout, test_dropout
 
 
-def get_confidence_metrics(logits):
+def get_confidence_metrics(logits: torch.Tensor) -> dict[str : torch.Tensor]:
+    """
+    calculates confidence metrics for a tensor of logits:
+    - entropy : token-wise entropy
+    - normalised entropy : token-wise entropy normalised by vocab size
+    - probs : log-probabilities of the each generated token
+
+    Returns:
+        dictionary containing the calculated confidence metrics
+    """
+    vocab = torch.tensor(logits.shape[-1])
     entropy = Categorical(logits=logits).entropy()
-    probs = softmax(logits, dim=-1)
-    return {"entropy": entropy, "probs": probs}
+    normalised_entropy = entropy / torch.log(vocab)
+    softmax_logits = softmax(logits, dim=-1)
+    max_probs = torch.max(softmax_logits, dim=-1).values
+    return {
+        "entropy": entropy,
+        "normalised_entropy": normalised_entropy,
+        "probs": max_probs,
+    }
 
 
 class TTSVariationalPipeline:
@@ -51,14 +67,37 @@ class TTSVariationalPipeline:
         }
         self.generate_kwargs = {"output_scores": True}
 
-    def get_all_confidence_metrics(self, output):
+    def collect_confidence_metrics(
+        self, output: dict[str : dict[str : torch.Tensor]]
+    ) -> dict[str : dict[str : torch.Tensor]]:
+        """
+        For each step/model in the pipeline calculates the associated uncertainty
+        metrics using the logits
+
+        Args:
+            output: dictionary containing the outputs of each step
+
+        Returns:
+            updated dictionary containing the confidence metrics calculated for each
+            step in the pipeline
+        """
         for step in self.pipeline_map.keys():
             output[step].update(get_confidence_metrics(output[step]["logits"]))
         return output
 
-    def clean_inference(self, x):
+    def __call__(self, x: Union[np.ndarray, bytes, str]):
+        """
+
+        Run the pipeline on an input x
+
+        Args:
+            x: numpy array audio input
+
+        Returns:
+            summarised transcript with associated unvertainties at each step
+        """
+
         output = {step: {} for step in self.pipeline_map.keys()}
-        """Run the pipeline on an input x"""
         # transcription
         transcription = self.transcriber(x, generate_kwargs=self.generate_kwargs)
         output["transcription"]["outputs"] = transcription["text"]
@@ -87,28 +126,9 @@ class TTSVariationalPipeline:
         )
 
         # add confidence metrics using the logits
-        output = self.get_all_confidence_metrics(output=output)
+        output = self.collect_confidence_metrics(output=output)
 
         return output
-
-    # def variational_inference(self, x, n_runs=5):
-    #     output = {"clean": {}, "variational": {}}
-    #     output["clean"] = self.clean_inference(x)
-    #     input_map = {
-    #         "transcription": x,
-    #         "translation": output["clean"]["transcription"],
-    #         "summarisation": output["clean"]["translation"],
-    #     }
-    #     for model_key, pl in self.pipeline_map.items():
-    #         # perhaps we could use a context handler here?
-    #         set_dropout(model=pl.model, dropout_flag=True)
-    #         output["variational"][model_key] = [None] * n_runs
-    #         for run_idx in range(n_runs):
-    #             output["variational"][model_key][run_idx] = pl(
-    #                 input_map[model_key], output_scores=True
-    #             )
-    #         set_dropout(model=pl.model, dropout_flag=False)
-    #     return output
 
 
 class CustomSpeechRecognitionPipeline(AutomaticSpeechRecognitionPipeline):

@@ -17,20 +17,34 @@ def main(TTS_params):
     ds = ds.cast_column("audio", Audio(sampling_rate=16_000))
     input_speech = next(iter(ds))["audio"]
 
-    clean_output = var_pipe.clean_inference(input_speech["array"])
+    clean_output = var_pipe(input_speech["array"])
     # logit shapes
-    print(clean_output["transcription"]["logits"].shape)
-    print(clean_output["translation"]["logits"].shape)
-    print(clean_output["summarisation"]["logits"].shape)
-    # entropy
-    print(torch.mean(clean_output["transcription"]["entropy"]))
-    print(torch.mean(clean_output["translation"]["entropy"]))
-    print(torch.mean(clean_output["summarisation"]["entropy"]))
-    # probability
-    print(torch.mean(clean_output["transcription"]["probs"]))
-    print(torch.mean(clean_output["translation"]["probs"]))
-    print(torch.mean(clean_output["summarisation"]["probs"]))
+    print("Logit shapes:")
+    for step in var_pipe.pipeline_map.keys():
+        print(f"{step.capitalize()}: {clean_output[step]["logits"].shape}")
 
+    # entropy
+    print("Mean entropy:")
+    for step in var_pipe.pipeline_map.keys():
+        print(f"{step.capitalize()}: {torch.mean(clean_output[step]["entropy"])}")
+
+    # normalised entropy
+    print("Normalised mean entropy:")
+    cumulative = 1
+    for step in var_pipe.pipeline_map.keys():
+        step_entropy = torch.mean(clean_output[step]["normalised_entropy"])
+        cumulative*= (1-step_entropy)
+        print(f"{step.capitalize()}: {step_entropy}")
+    print(f"Cumulative confidence (1 - entropy): {cumulative}")
+
+    # probabilities
+    print("Mean top probabilities:")
+    cumulative = 1
+    for step in var_pipe.pipeline_map.keys():
+        step_prob = torch.mean(clean_output[step]["probs"])
+        cumulative *= step_prob
+        print(f"{step.capitalize()}: {step_prob}")
+    print(f"Cumulative confidence: {cumulative}")
 
 if __name__ == "__main__":
     TTS_pars = {
