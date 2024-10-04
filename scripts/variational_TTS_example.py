@@ -1,6 +1,7 @@
 """
     An example use of the transcription, translation and summarisation pipeline.
 """
+import json
 
 import torch
 from datasets import Audio, load_dataset
@@ -17,7 +18,7 @@ def main(TTS_params):
     ds = ds.cast_column("audio", Audio(sampling_rate=16_000))
     input_speech = next(iter(ds))["audio"]
 
-    clean_output = var_pipe(input_speech["array"])
+    clean_output = var_pipe.clean_inference(input_speech["array"])
     # logit shapes
     print("Logit shapes:")
     for step in var_pipe.pipeline_map.keys():
@@ -45,6 +46,15 @@ def main(TTS_params):
         cumulative *= step_prob
         print(f"{step.capitalize()}: {step_prob}")
     print(f"Cumulative confidence: {cumulative}")
+
+    variational_output = var_pipe.variational_inference(x=input_speech['array'],n_runs=2)
+
+
+    for step in var_pipe.pipeline_map.keys():
+        print(f'{step}:')
+        step_output = variational_output['variational'][step]
+        for run in step_output:
+            print(run['logits'])
 
 if __name__ == "__main__":
     TTS_pars = {
