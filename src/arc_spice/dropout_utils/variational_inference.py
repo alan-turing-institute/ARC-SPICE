@@ -12,7 +12,7 @@ from transformers import (
     pipeline,
 )
 
-from arc_spice.dropout_utils.dropout_pipeline import set_dropout, test_dropout
+from arc_spice.dropout_utils.dropout_pipeline import set_dropout
 
 
 def get_confidence_metrics(logits: torch.Tensor) -> dict[str : torch.Tensor]:
@@ -66,26 +66,48 @@ class TTSVariationalPipeline:
             "summarisation": self.summariser,
         }
         self.generate_kwargs = {"output_scores": True}
+        self.func_map = {
+            "transcription": self.transcribe,
+            "translation": self.translate,
+            "summarisation": self.summarise,
+        }
 
-    def collect_confidence_metrics(
-        self, output: dict[str : dict[str : torch.Tensor]]
-    ) -> dict[str : dict[str : torch.Tensor]]:
-        """
-        For each step/model in the pipeline calculates the associated uncertainty
-        metrics using the logits
+    def transcribe(self, x: Union[np.ndarray, bytes, str]):
+        transcription = self.transcriber(x, generate_kwargs=self.generate_kwargs)
+        output_text = transcription["text"]
+        output_logits = transcription["raw_outputs"][0]["logits"].squeeze().T
+        output_dict = {"outputs": output_text, "logits": output_logits}
+        confidence_metrics = get_confidence_metrics(output_logits)
+        output_dict.update(confidence_metrics)
+        return output_dict
 
-        Args:
-            output: dictionary containing the outputs of each step
+    def translate(self, source_text: str):
+        translation = self.translator(
+            source_text,
+            output_logits=True,
+            return_dict_in_generate=True,
+        )
+        output_text = translation["translation_text"]
+        output_logits = torch.cat(translation["raw_outputs"]["logits"])
+        output_dict = {"outputs": output_text, "logits": output_logits}
+        confidence_metrics = get_confidence_metrics(output_logits)
+        output_dict.update(confidence_metrics)
+        return output_dict
 
-        Returns:
-            updated dictionary containing the confidence metrics calculated for each
-            step in the pipeline
-        """
-        for step in self.pipeline_map.keys():
-            output[step].update(get_confidence_metrics(output[step]["logits"]))
-        return output
+    def summarise(self, source_text: str):
+        summarisation = self.summariser(
+            source_text,
+            output_logits=True,
+            return_dict_in_generate=True,
+        )
+        output_text = summarisation["summary_text"]
+        output_logits = torch.cat(summarisation["raw_outputs"]["logits"])
+        output_dict = {"outputs": output_text, "logits": output_logits}
+        confidence_metrics = get_confidence_metrics(output_logits)
+        output_dict.update(confidence_metrics)
+        return output_dict
 
-    def __call__(self, x: Union[np.ndarray, bytes, str]):
+    def clean_inference(self, x: Union[np.ndarray, bytes, str]):
         """
 
         Run the pipeline on an input x
@@ -99,36 +121,40 @@ class TTSVariationalPipeline:
 
         output = {step: {} for step in self.pipeline_map.keys()}
         # transcription
-        transcription = self.transcriber(x, generate_kwargs=self.generate_kwargs)
-        output["transcription"]["outputs"] = transcription["text"]
-        output["transcription"]["logits"] = (
-            transcription["raw_outputs"][0]["logits"].squeeze().T
-        )
-        # translation
-        translation = self.translator(
-            transcription["text"],
-            output_logits=True,
-            return_dict_in_generate=True,
-        )
-        output["translation"]["outputs"] = translation["translation_text"]
-        output["translation"]["logits"] = torch.cat(
-            translation["raw_outputs"]["logits"]
-        )
-        # summarisation
-        summarisation = self.summariser(
-            translation["translation_text"],
-            output_logits=True,
-            return_dict_in_generate=True,
-        )
-        output["summarisation"]["outputs"] = summarisation["summary_text"]
-        output["summarisation"]["logits"] = torch.cat(
-            summarisation["raw_outputs"]["logits"]
-        )
+        transcription = self.transcribe(x)
+        output["transcription"].update(transcription)
 
-        # add confidence metrics using the logits
-        output = self.collect_confidence_metrics(output=output)
+        # translation
+        translation = self.translate(transcription["outputs"])
+        output["translation"].update(translation)
+
+        # summarisation
+        summarisation = self.summarise(translation["outputs"])
+        output["summarisation"].update(summarisation)
 
         return output
+
+    def variational_inference(self, x, n_runs=5):
+        output = {"clean": {}, "variational": {}}
+        output["clean"] = self.clean_inference(x)
+        input_map = {
+            "transcription": x,
+            "translation": output["clean"]["transcription"]["outputs"],
+            "summarisation": output["clean"]["translation"]["outputs"],
+        }
+        for model_key, pl in self.pipeline_map.items():
+            # perhaps we could use a context handler here?
+            set_dropout(model=pl.model, dropout_flag=True)
+            output["variational"][model_key] = [None] * n_runs
+            for run_idx in range(n_runs):
+                output["variational"][model_key][run_idx] = self.func_map[model_key](
+                    input_map[model_key]
+                )
+            set_dropout(model=pl.model, dropout_flag=False)
+        return output
+
+    def __call__(self, x):
+        return self.clean_inference(x)
 
 
 class CustomSpeechRecognitionPipeline(AutomaticSpeechRecognitionPipeline):
