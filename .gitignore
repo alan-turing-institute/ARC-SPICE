@@ -162,3 +162,4 @@ Thumbs.db
 data/Taxi1500/raw/*
 # other
 temp
+.vscode
