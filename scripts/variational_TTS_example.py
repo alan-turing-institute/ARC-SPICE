@@ -20,17 +20,17 @@ def main(TTS_params):
 
     clean_output = var_pipe.clean_inference(input_speech["array"])
     # logit shapes
-    print("Logit shapes:")
+    print("\nLogit shapes:")
     for step in var_pipe.pipeline_map.keys():
         print(f"{step.capitalize()}: {clean_output[step]["logits"].shape}")
 
     # entropy
-    print("Mean entropy:")
+    print("\nMean entropy:")
     for step in var_pipe.pipeline_map.keys():
         print(f"{step.capitalize()}: {torch.mean(clean_output[step]["entropy"])}")
 
     # normalised entropy
-    print("Normalised mean entropy:")
+    print("\nNormalised mean entropy:")
     cumulative = 1
     for step in var_pipe.pipeline_map.keys():
         step_entropy = torch.mean(clean_output[step]["normalised_entropy"])
@@ -39,7 +39,7 @@ def main(TTS_params):
     print(f"Cumulative confidence (1 - entropy): {cumulative}")
 
     # probabilities
-    print("Mean top probabilities:")
+    print("\nMean top probabilities:")
     cumulative = 1
     for step in var_pipe.pipeline_map.keys():
         step_prob = torch.mean(clean_output[step]["probs"])
@@ -51,10 +51,10 @@ def main(TTS_params):
 
 
     for step in var_pipe.pipeline_map.keys():
-        print(f'{step}:')
+        print(f'\n{step}:')
         step_output = variational_output['variational'][step]
         for run in step_output:
-            print(run['logits'])
+            print(run['semantic_embedding'])
 
 if __name__ == "__main__":
     TTS_pars = {
