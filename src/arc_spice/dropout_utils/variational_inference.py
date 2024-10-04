@@ -3,10 +3,13 @@ from typing import Union
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.nn.functional import softmax
 from transformers import (
     AutomaticSpeechRecognitionPipeline,
+    AutoModel,
+    AutoTokenizer,
     SummarizationPipeline,
     TranslationPipeline,
     pipeline,
@@ -14,27 +17,21 @@ from transformers import (
 
 from arc_spice.dropout_utils.dropout_pipeline import set_dropout
 
+# From huggingface page with model:
+#   - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
 
-def get_confidence_metrics(logits: torch.Tensor) -> dict[str : torch.Tensor]:
-    """
-    calculates confidence metrics for a tensor of logits:
-    - entropy : token-wise entropy
-    - normalised entropy : token-wise entropy normalised by vocab size
-    - probs : log-probabilities of the each generated token
 
-    Returns:
-        dictionary containing the calculated confidence metrics
-    """
-    vocab = torch.tensor(logits.shape[-1])
-    entropy = Categorical(logits=logits).entropy()
-    normalised_entropy = entropy / torch.log(vocab)
-    softmax_logits = softmax(logits, dim=-1)
-    max_probs = torch.max(softmax_logits, dim=-1).values
-    return {
-        "entropy": entropy,
-        "normalised_entropy": normalised_entropy,
-        "probs": max_probs,
-    }
+# Mean Pooling - Take attention mask into account for correct averaging
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[
+        0
+    ]  # First element of model_output contains all token embeddings
+    input_mask_expanded = (
+        attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    )
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+        input_mask_expanded.sum(1), min=1e-9
+    )
 
 
 class TTSVariationalPipeline:
@@ -60,6 +57,13 @@ class TTSVariationalPipeline:
             pipeline_class=CustomSummarizationPipeline,
         )
 
+        self.semantic_tokenizer = AutoTokenizer.from_pretrained(
+            "sentence-transformers/all-MiniLM-L6-v2"
+        )
+        self.semantic_model = AutoModel.from_pretrained(
+            "sentence-transformers/all-MiniLM-L6-v2"
+        )
+
         self.pipeline_map = {
             "transcription": self.transcriber,
             "translation": self.translator,
@@ -72,12 +76,50 @@ class TTSVariationalPipeline:
             "summarisation": self.summarise,
         }
 
+    def get_confidence_metrics(
+        self, output_dict: dict[str : str | torch.Tensor]
+    ) -> dict[str : torch.Tensor]:
+        """
+        calculates confidence metrics for a tensor of logits:
+        - entropy : token-wise entropy
+        - normalised entropy : token-wise entropy normalised by vocab size
+        - probs : log-probabilities of the each generated token
+
+        Returns:
+            dictionary containing the calculated confidence metrics
+        """
+        logits = output_dict["logits"]
+        text = output_dict["outputs"]
+        vocab = torch.tensor(logits.shape[-1])
+        entropy = Categorical(logits=logits).entropy()
+        normalised_entropy = entropy / torch.log(vocab)
+        softmax_logits = softmax(logits, dim=-1)
+        max_probs = torch.max(softmax_logits, dim=-1).values
+        tokenized_text = self.semantic_tokenizer(
+            text, padding=True, truncation=True, return_tensors="pt"
+        )
+        with torch.no_grad():
+            model_embeddings = self.semantic_model(**tokenized_text)
+        # Perform pooling
+        sentence_embeddings = mean_pooling(
+            model_embeddings, tokenized_text["attention_mask"]
+        )
+
+        # Normalize embeddings
+        sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+        return {
+            "entropy": entropy,
+            "normalised_entropy": normalised_entropy,
+            "probs": max_probs,
+            "semantic_embedding": sentence_embeddings,
+        }
+
     def transcribe(self, x: Union[np.ndarray, bytes, str]):
         transcription = self.transcriber(x, generate_kwargs=self.generate_kwargs)
         output_text = transcription["text"]
         output_logits = transcription["raw_outputs"][0]["logits"].squeeze().T
         output_dict = {"outputs": output_text, "logits": output_logits}
-        confidence_metrics = get_confidence_metrics(output_logits)
+        confidence_metrics = self.get_confidence_metrics(output_dict)
         output_dict.update(confidence_metrics)
         return output_dict
 
@@ -90,7 +132,7 @@ class TTSVariationalPipeline:
         output_text = translation["translation_text"]
         output_logits = torch.cat(translation["raw_outputs"]["logits"])
         output_dict = {"outputs": output_text, "logits": output_logits}
-        confidence_metrics = get_confidence_metrics(output_logits)
+        confidence_metrics = self.get_confidence_metrics(output_dict)
         output_dict.update(confidence_metrics)
         return output_dict
 
@@ -103,7 +145,7 @@ class TTSVariationalPipeline:
         output_text = summarisation["summary_text"]
         output_logits = torch.cat(summarisation["raw_outputs"]["logits"])
         output_dict = {"outputs": output_text, "logits": output_logits}
-        confidence_metrics = get_confidence_metrics(output_logits)
+        confidence_metrics = self.get_confidence_metrics(output_dict)
         output_dict.update(confidence_metrics)
         return output_dict
 
