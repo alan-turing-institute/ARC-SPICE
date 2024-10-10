@@ -25,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.vscode
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -156,3 +157,7 @@ Thumbs.db
 # Common editor files
 *~
 *.swp
+
+# project related
+data
+temp
