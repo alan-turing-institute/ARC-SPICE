@@ -159,5 +159,5 @@ Thumbs.db
 *.swp
 
 # project related
-data
+data/Taxi1500/raw/*
 temp
