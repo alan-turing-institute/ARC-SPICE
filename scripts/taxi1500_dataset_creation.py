@@ -176,3 +176,5 @@ for i in range(len(eng_val)):
 
 with open("data/Taxi1500/processed/val_data.json", "w") as f:
     json.dump(val_ds, f, indent=2)
+
+print(json.dumps(train_ds[0], indent=3))
