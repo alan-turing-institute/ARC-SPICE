@@ -163,3 +163,7 @@ data/Taxi1500/raw/*
 # other
 temp
 .vscode
+
+# project related
+data/Taxi1500/raw
+temp
