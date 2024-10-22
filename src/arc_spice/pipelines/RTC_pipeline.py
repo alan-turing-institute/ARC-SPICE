@@ -60,6 +60,6 @@ class RTCPipeline:
         self.results["translation"] = translation[0]["translation_text"]
 
         classification = self.classifier(
-            translation[0]["translation_text"], self.candidate_labels
+            self.results["translation"], self.candidate_labels
         )
         self.results["classification"] = classification[0]["output"]
