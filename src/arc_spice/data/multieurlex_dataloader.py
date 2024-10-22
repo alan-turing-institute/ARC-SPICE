@@ -57,6 +57,7 @@ def load_multieurlex(level, lang_pair):
         label_level=level,
         trust_remote_code=True,
     )
+
     meta_data = {
         "n_classes": len(classes),
         "class_labels": classes,
