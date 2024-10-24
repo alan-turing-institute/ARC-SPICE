@@ -17,16 +17,6 @@ def set_dropout(model: torch.nn.Module, dropout_flag: bool) -> None:
             param.train(dropout_flag)
 
 
-def MCDropoutPipeline(task: str, model: str):
-    pl = pipeline(
-        task=task,
-        model=model,
-    )
-    initial_model = pl.model
-    pl.model = set_dropout(model=initial_model, dropout_flag=True)
-    return pl
-
-
 def test_dropout(pipe: Pipeline, dropout_flag: bool):
     model = pipe.model
     dropout_count = 0

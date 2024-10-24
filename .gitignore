@@ -164,3 +164,4 @@ data/Taxi1500/raw/*
 # other
 temp
 .vscode
+.venv-3.10

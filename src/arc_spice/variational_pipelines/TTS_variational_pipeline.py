@@ -16,7 +16,7 @@ from transformers import (
     pipeline,
 )
 
-from arc_spice.dropout_utils.dropout_pipeline import set_dropout
+from arc_spice.variational_pipelines.dropout_utils import set_dropout
 
 # From huggingface page with model:
 #   - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2

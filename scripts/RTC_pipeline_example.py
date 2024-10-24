@@ -2,29 +2,48 @@
     An example use of the transcription, translation and summarisation pipeline.
 """
 
-import torch
-from torch.nn.functional import softmax
-
 from arc_spice.data.multieurlex_dataloader import load_multieurlex
 from arc_spice.pipelines.RTC_pipeline import RTCPipeline
+
+# special_split = RTCPipeline.split_inputs
+# stack = RTCPipeline.stack_inputs
+
+MAX_LEN = 256
 
 
 def main(RTC_pars):
     lang_pair = {"source": "fr", "target": "en"}
-    [train, _, _], metadata_params = load_multieurlex(level=1, lang_pair=lang_pair)
-    RTC = RTCPipeline(RTC_pars, metadata_params)
-    test_row = next(iter(train))
+    [train, _, _], metadata_params = load_multieurlex(level=2, lang_pair=lang_pair)
+
+    row_iterator = iter(train)
+    test_row = next(row_iterator)
+
+    # split_source = special_split(test_row["source_text"], ".")
+    # split_target = special_split(test_row["target_text"], ".")
+
+    # for index, (source, target) in enumerate(zip(split_source, split_target)):
+    #     print(f"input {index}")
+    #     print(f"source:\n{source}\n")
+    #     print(f"target:\n{target}\n")
+
+    # stacked_source = stack(split_source, MAX_LEN)
+    # stacked_target = stack(split_target, MAX_LEN)
+
+    # for index, (source, target) in enumerate(zip(stacked_source, stacked_target)):
+    #     print(f"input {index}")
+    #     print(f"source:\n{source}\n")
+    #     print(f"target:\n{target}\n")
+
     print(test_row["source_text"])
     print(test_row["target_text"])
-    translator_output = RTC.translator(test_row["source_text"])
-    translation = translator_output[0]["translation_text"]
-    classifier_output = RTC.classifier(translation, RTC.candidate_labels)
+
+    RTC = RTCPipeline(RTC_pars, metadata_params)
+    translation = RTC.translate(test_row["source_text"])
+    classifier_output = RTC.classify(translation)
     classification = classifier_output["scores"]
 
     print(translation)
     print(classification)
-    # print(translation[0]["translation_text"])
-    # print(test_row["target_text"])
 
 
 if __name__ == "__main__":
@@ -35,7 +54,7 @@ if __name__ == "__main__":
         },
         "translator": {
             "specific_task": "translation_fr_to_en",
-            "model": "facebook/mbart-large-50-many-to-many-mmt",
+            "model": "ybanas/autotrain-fr-en-translate-51410121895",
         },
         "classifier": {
             "specific_task": "zero-shot-classification",
