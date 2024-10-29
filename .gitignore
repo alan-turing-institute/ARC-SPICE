@@ -160,7 +160,7 @@ Thumbs.db
 
 
 # project related
-data/Taxi1500/raw/*
+data/Taxi1500*
 # other
 temp
 .vscode
