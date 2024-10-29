@@ -48,19 +48,19 @@ class RTCVariationalPipeline:
         self, model_pars: dict[str : dict[str:str]], data_pars, n_variational_runs=5
     ) -> None:
         self.OCR = pipeline(
-            model_pars["OCR"]["specific_task"],
-            model_pars["OCR"]["model"],
+            task=model_pars["OCR"]["specific_task"],
+            model=model_pars["OCR"]["model"],
         )
         self.translator = pipeline(
-            model_pars["translator"]["specific_task"],
-            model_pars["translator"]["model"],
+            task=model_pars["translator"]["specific_task"],
+            model=model_pars["translator"]["model"],
             max_length=512,
             pipeline_class=CustomTranslationPipeline,
         )
 
         self.classifier = pipeline(
-            model_pars["classifier"]["specific_task"],
-            model_pars["classifier"]["model"],
+            task=model_pars["classifier"]["specific_task"],
+            model=model_pars["classifier"]["model"],
             multi_label=True,
         )
 

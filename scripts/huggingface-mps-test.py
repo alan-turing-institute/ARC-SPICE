@@ -15,12 +15,15 @@ lang_pair = {"source": "fr", "target": "en"}
 row_iterator = iter(train)
 test_row = next(row_iterator)
 
+print(test_row["source_text"])
+
 translator = pipeline(
     model_pars["translator"]["specific_task"],
     model_pars["translator"]["model"],
     max_length=512,
     device="mps",
 )
+
 
 translated = translator(test_row["source_text"])
 
