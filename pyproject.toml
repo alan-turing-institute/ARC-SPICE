@@ -41,6 +41,7 @@ dependencies = [
   "accelerate",
   "tensorboard",
   "scikit-learn",
+  "soundfile",
   "pillow=9.5
 ]
 
