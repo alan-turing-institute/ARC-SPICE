@@ -22,11 +22,6 @@ class RTCPipeline:
 
     def __init__(self, model_pars, data_pars) -> None:
 
-        # ################################################## #
-        # This is just a hotfix until we can get mps working #
-        device = "cpu"
-        # ################################################## #
-
         self.pars = model_pars
         self.OCR = pipeline(
             model_pars["OCR"]["specific_task"],

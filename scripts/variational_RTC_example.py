@@ -2,7 +2,10 @@
     An example use of the transcription, translation and summarisation pipeline.
 """
 
-from arc_spice.data.multieurlex_dataloader import load_multieurlex
+import torch
+from torch.nn.functional import binary_cross_entropy
+
+from arc_spice.data.multieurlex_dataloader import MultiOneHot, load_multieurlex
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
@@ -16,45 +19,25 @@ MAX_LEN = 256
 def main(RTC_pars):
     lang_pair = {"source": "fr", "target": "en"}
     [train, _, _], metadata_params = load_multieurlex(level=1, lang_pair=lang_pair)
+    multi_onehot = MultiOneHot(metadata_params["n_classes"])
 
     row_iterator = iter(train)
     test_row = next(row_iterator)
 
-    # split_source = special_split(test_row["source_text"], ".")
-    # split_target = special_split(test_row["target_text"], ".")
-
-    # for index, (source, target) in enumerate(zip(split_source, split_target)):
-    #     print(f"input {index}")
-    #     print(f"source:\n{source}\n")
-    #     print(f"target:\n{target}\n")
-
-    # stacked_source = stack(split_source, MAX_LEN)
-    # stacked_target = stack(split_target, MAX_LEN)
-
-    # for index, (source, target) in enumerate(zip(stacked_source, stacked_target)):
-    #     print(f"input {index}")
-    #     print(f"source:\n{source}\n")
-    #     print(f"target:\n{target}\n")
-
-    # print(test_row["source_text"])
-    # print(test_row["target_text"])
+    class_labels = multi_onehot(test_row["class_labels"])
+    print(class_labels)
 
     RTC = RTCVariationalPipeline(RTC_pars, metadata_params)
-    # translation = RTC.translate(test_row["source_text"])
-    # classifier_output = RTC.classify(translation)
-    # classification = classifier_output["scores"]
-
-    # print(translation)
-    # print(classification)
-
-    # RTC.clean_inference(test_row["source_text"])
-    # # print(RTC.clean_output["translation"]["outputs"])
-    # # print(RTC.clean_output["translation"]["semantic_embedding"])
-    # print(RTC.clean_output["classification"])
-
+    RTC.check_dropout()
     RTC.variational_inference(test_row["source_text"])
 
-    print(RTC.var_output["variational"]["translation"]["full_output"])
+    print(RTC.var_output["variational"]["translation"]["weighted_semantic_density"])
+    print(RTC.var_output["variational"]["classification"])
+    mean_scores = RTC.var_output["variational"]["classification"]["mean_scores"]
+    print(mean_scores)
+    print(binary_cross_entropy(mean_scores.float(), class_labels.float()))
+    preds = torch.round(mean_scores)
+    print(torch.mean((preds.float() == class_labels.float()).float()))
 
 
 if __name__ == "__main__":
@@ -69,7 +52,9 @@ if __name__ == "__main__":
         },
         "classifier": {
             "specific_task": "zero-shot-classification",
-            "model": "facebook/bart-large-mnli",
+            # "model": "cross-encoder/nli-MiniLM2-L6-H768",
+            # "model": "cointegrated/rubert-base-cased-nli-threeway",
+            "model": "claritylab/zero-shot-explicit-binary-bert",
         },
     }
     main(RTC_pars=RTC_pars)
