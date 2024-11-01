@@ -101,14 +101,6 @@ class RTCVariationalPipeline:
             "classification": self.classify,
         }
         self.naive_outputs = {
-            # "recognition": [
-            #     "outputs",
-            #     "logits",
-            #     "entropy",
-            #     "normalised_entropy",
-            #     "probs",
-            #     "semantic_embedding",
-            # ],
             "recognition": [
                 "outputs",
                 # "logits",
@@ -126,13 +118,6 @@ class RTCVariationalPipeline:
                 "probs",
                 "semantic_embedding",
             ],
-            # "classification": [
-            #     "outputs",
-            #     "logits",
-            #     "entropy",
-            #     "normalised_entropy",
-            #     "probs",
-            # ],
             "classification": [
                 # "outputs",
                 # "logits",
