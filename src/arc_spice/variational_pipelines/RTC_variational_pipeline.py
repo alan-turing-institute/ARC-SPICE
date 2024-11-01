@@ -216,15 +216,15 @@ class RTCVariationalPipeline:
 
     def stack_variational_outputs(self):
         new_var_dict = {}
-        for step in self.var_output["variational"].keys():
+        for step in self.var_output.keys():
             new_var_dict[step] = {}
             for metric in self.naive_outputs[step]:
                 new_values = [None] * self.n_variational_runs
                 for run in range(self.n_variational_runs):
-                    new_values[run] = self.var_output["variational"][step][run][metric]
+                    new_values[run] = self.var_output[step][run][metric]
                 new_var_dict[step][metric] = new_values
 
-        self.var_output["variational"] = new_var_dict
+        self.var_output = new_var_dict
 
     def translation_semantic_density(self):
         # Broadly:
@@ -233,8 +233,8 @@ class RTCVariationalPipeline:
         # Average these (weighted by the sequence length?)
         # This is the overall confidence
 
-        clean_out = self.var_output["clean"]["translation"]["outputs"]
-        var_step = self.var_output["variational"]["translation"]
+        clean_out = self.clean_output["translation"]["outputs"]
+        var_step = self.var_output["translation"]
         n_sentences = len(clean_out)
         densities = [None] * n_sentences
         simalarities = [None] * n_sentences
@@ -258,7 +258,7 @@ class RTCVariationalPipeline:
                     nli_inp, padding=True, return_tensors="pt"
                 )
                 sims[run_index] = cosine_similarity(
-                    self.var_output["clean"]["translation"]["semantic_embedding"][
+                    self.clean_output["translation"]["semantic_embedding"][
                         sentence_index
                     ][0],
                     var_step["semantic_embedding"][run_index][sentence_index],
@@ -281,7 +281,7 @@ class RTCVariationalPipeline:
             torch.sum(torch.tensor(densities) * torch.tensor(sequence_lengths))
             / total_len
         )
-        self.var_output["variational"]["translation"].update(
+        self.var_output["translation"].update(
             {
                 "semantic_densities": densities,
                 "semantic_simalarities": simalarities,
@@ -292,14 +292,11 @@ class RTCVariationalPipeline:
 
     def get_classification_confidence(self):
         all_preds = torch.stack(
-            [
-                torch.tensor(pred)
-                for pred in self.var_output["variational"]["classification"]["probs"]
-            ]
+            [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]]
         )
         mean_scores = torch.mean(all_preds, dim=0)
         std_scores = torch.std(all_preds, dim=0)
-        self.var_output["variational"]["classification"].update(
+        self.var_output["classification"].update(
             {
                 "mean_scores": mean_scores,
                 "std_scores": std_scores,
@@ -326,7 +323,11 @@ class RTCVariationalPipeline:
 
     def variational_inference(self, x):
         self.clean_inference(x)
-        self.var_output = {"clean": self.clean_output, "variational": {}}
+        self.var_output = {
+            "recognition": [None] * self.n_variational_runs,
+            "translation": [None] * self.n_variational_runs,
+            "classification": [None] * self.n_variational_runs,
+        }
 
         input_map = {
             "recognition": x,
@@ -338,13 +339,11 @@ class RTCVariationalPipeline:
         for model_key, pl in self.pipeline_map.items():
             # turn on dropout for this model
             set_dropout(model=pl.model, dropout_flag=True)
-            # create the output list
-            self.var_output["variational"][model_key] = [None] * self.n_variational_runs
             # do n runs of the inference
             for run_idx in range(self.n_variational_runs):
-                self.var_output["variational"][model_key][run_idx] = self.func_map[
-                    model_key
-                ](input_map[model_key])
+                self.var_output[model_key][run_idx] = self.func_map[model_key](
+                    input_map[model_key]
+                )
             # turn off dropout for this model
             set_dropout(model=pl.model, dropout_flag=False)
 
