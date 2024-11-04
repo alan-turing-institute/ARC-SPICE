@@ -131,6 +131,9 @@ class RTCVariationalPipeline:
     @staticmethod
     def split_inputs(text, split_key):
         split_rows = text.split(split_key)
+        # for when string ends with with the delimiter
+        if split_rows[-1] == "":
+            split_rows = split_rows[:-1]
         recovered_splits = [split + split_key for split in split_rows]
         return recovered_splits
 

@@ -11,9 +11,6 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
 
-# special_split = RTCPipeline.split_inputs
-# stack = RTCPipeline.stack_inputs
-
 MAX_LEN = 256
 
 
@@ -26,10 +23,10 @@ def main(RTC_pars):
     test_row = next(row_iterator)
 
     class_labels = multi_onehot(test_row["class_labels"])
-    print(class_labels)
 
     RTC = RTCVariationalPipeline(RTC_pars, metadata_params)
     RTC.check_dropout()
+
     RTC.variational_inference(test_row["source_text"])
 
     print(RTC.var_output["translation"]["weighted_semantic_density"])
@@ -40,11 +37,17 @@ def main(RTC_pars):
     preds = torch.round(mean_scores)
     print(torch.mean((preds.float() == class_labels.float()).float()))
 
-    print(
-        get_bleu_score(
-            test_row["target_text"], [RTC.clean_output["translation"]["full_output"]]
-        )
+    target_translation = test_row["target_text"]
+    clean_translation = RTC.clean_output["translation"]["full_output"]
+
+    print(target_translation, clean_translation)
+
+    dl_bleu = get_bleu_score(
+        target_translation,
+        [clean_translation],
     )
+
+    print(f"Document-level BLEU: {dl_bleu}")
 
 
 if __name__ == "__main__":
