@@ -76,7 +76,7 @@ def load_multieurlex(level, lang_pair):
     return [train_dataset, test_dataset, val_dataset], meta_data
 
 
-class MultiOneHot:
+class MultiHot:
     def __init__(self, n_classes):
         self.n_classes = n_classes
 
