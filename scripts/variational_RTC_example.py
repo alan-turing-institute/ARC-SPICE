@@ -32,16 +32,14 @@ def main(RTC_pars):
     for _ in range(0, randint(1, 25)):
         test_row = next(row_iterator)
 
+    with open("temp/test_output.txt", "w") as text_file:
+        text_file.write("Purchase Amount: %s" % test_row["source_text"])
+
     class_labels = multi_onehot(test_row["class_labels"])
 
     RTC = RTCVariationalPipeline(RTC_pars, metadata_params)
     RTC.check_dropout()
     RTC.variational_inference(test_row["source_text"])
-
-    with open("temp/test_output.txt", "w") as text_file:
-        text_file.write("Purchase Amount: %s" % test_row["source_text"])
-
-    exit()
 
     print("\nClassification:")
     mean_scores = RTC.var_output["classification"]["mean_scores"]
