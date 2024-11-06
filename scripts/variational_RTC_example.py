@@ -38,7 +38,7 @@ def main(RTC_pars):
     RTC.check_dropout()
     RTC.variational_inference(test_row["source_text"])
 
-    with open("test_output.txt", "w") as text_file:
+    with open("temp/test_output.txt", "w") as text_file:
         text_file.write("Purchase Amount: %s" % test_row["source_text"])
 
     exit()
