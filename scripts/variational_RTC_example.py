@@ -25,8 +25,6 @@ def main(RTC_pars):
     row_iterator = iter(train)
     multi_onehot = MultiHot(metadata_params["n_classes"])
     comet_model_pth = download_model(model="Unbabel/wmt22-comet-da")
-    # or for example:
-    # model_path = download_model("Unbabel/wmt22-comet-da")
 
     # Load the model checkpoint:
     comet_model = load_from_checkpoint(comet_model_pth)
@@ -39,6 +37,11 @@ def main(RTC_pars):
     RTC = RTCVariationalPipeline(RTC_pars, metadata_params)
     RTC.check_dropout()
     RTC.variational_inference(test_row["source_text"])
+
+    with open("test_output.txt", "w") as text_file:
+        text_file.write("Purchase Amount: %s" % test_row["source_text"])
+
+    exit()
 
     print("\nClassification:")
     mean_scores = RTC.var_output["classification"]["mean_scores"]
