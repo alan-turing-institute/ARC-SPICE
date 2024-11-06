@@ -43,41 +43,41 @@ def main(RTC_pars):
     RTC = RTCVariationalPipeline(RTC_pars, metadata_params)
     RTC.check_dropout()
 
-    # RTC.variational_inference(test_row["source_text"])
+    RTC.variational_inference(test_row["source_text"])
 
-    # print(RTC.var_output["translation"]["weighted_semantic_density"])
-    # print(RTC.var_output["classification"])
-    # mean_scores = RTC.var_output["classification"]["mean_scores"]
-    # print(mean_scores)
-    # print(binary_cross_entropy(mean_scores.float(), class_labels.float()))
-    # preds = torch.round(mean_scores)
-    # print(torch.mean((preds.float() == class_labels.float()).float()))
+    print(RTC.var_output["translation"]["weighted_semantic_density"])
+    print(RTC.var_output["classification"])
+    mean_scores = RTC.var_output["classification"]["mean_scores"]
+    print(mean_scores)
+    print(binary_cross_entropy(mean_scores.float(), class_labels.float()))
+    preds = torch.round(mean_scores)
+    print(torch.mean((preds.float() == class_labels.float()).float()))
 
-    # source_text = test_row["target_text"]
-    # target_text = test_row["target_text"]
-    # clean_translation = RTC.clean_output["translation"]["full_output"]
+    source_text = test_row["target_text"]
+    target_text = test_row["target_text"]
+    clean_translation = RTC.clean_output["translation"]["full_output"]
 
-    # print(target_text, clean_translation)
+    print(target_text, clean_translation)
 
-    # dl_bleu = get_bleu_score(
-    #     target_text,
-    #     [clean_translation],
-    # )
+    dl_bleu = get_bleu_score(
+        target_text,
+        [clean_translation],
+    )
 
-    # print(f"BLEU: {dl_bleu}")
+    print(f"BLEU: {dl_bleu}")
 
-    # comet_inp = [
-    #     {
-    #         "src": source_text,
-    #         "mt": clean_translation,
-    #         "ref": target_text,
-    #     }
-    # ]
+    comet_inp = [
+        {
+            "src": source_text,
+            "mt": clean_translation,
+            "ref": target_text,
+        }
+    ]
 
-    # comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator="cpu")
-    # comet_scores = comet_output["scores"]
+    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator="cpu")
+    comet_scores = comet_output["scores"]
 
-    # print(f"COMET: {comet_scores[0]}")
+    print(f"COMET: {comet_scores[0]}")
 
 
 if __name__ == "__main__":
