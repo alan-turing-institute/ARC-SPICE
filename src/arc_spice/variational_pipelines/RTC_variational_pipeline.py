@@ -11,11 +11,16 @@ from transformers import (
     TranslationPipeline,
     pipeline,
 )
-
-from arc_spice.variational_pipelines.dropout_utils import set_dropout, test_dropout
+import logging
+from arc_spice.variational_pipelines.dropout_utils import (
+    set_dropout,
+    count_dropout,
+)
 
 # From huggingface page with model:
 #   - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+
+logger = logging.Logger("RTC_variational_pipeline")
 
 
 # Mean Pooling - Take attention mask into account for correct averaging
@@ -31,13 +36,18 @@ def mean_pooling(model_output, attention_mask):
     )
 
 
+# OCR, Translationslation, Topic Classification
 class RTCVariationalPipeline:
     """
     variational version of the RTC pipeline
     """
 
     def __init__(
-        self, model_pars: dict[str : dict[str:str]], data_pars, n_variational_runs=5
+        self,
+        model_pars: dict[str : dict[str:str]],
+        data_pars,
+        n_variational_runs=5,
+        translation_batch_size=8,
     ) -> None:
 
         device = (
@@ -45,7 +55,8 @@ class RTCVariationalPipeline:
             if torch.cuda.is_available()
             else "mps" if torch.backends.mps.is_available() else "cpu"
         )
-        print(f"Loading pipeline on device: {device}")
+
+        logging.info(f"Loading pipeline on device: {device}")
 
         self.OCR = pipeline(
             task=model_pars["OCR"]["specific_task"],
@@ -67,18 +78,41 @@ class RTCVariationalPipeline:
             device=device,
         )
 
-        self.candidate_labels = [
+        self.topic_labels = [
             class_names_dict["en"]
             for class_names_dict in data_pars["class_descriptors"]
         ]
 
-        self.semantic_tokenizer = AutoTokenizer.from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2"
-        )
-        self.semantic_model = AutoModel.from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2"
-        )
+        self._init_semantic_density()
 
+        self.pipeline_map = {
+            "recognition": self.OCR,
+            "translation": self.translator,
+            "classification": self.classifier,
+        }
+
+        self.func_map = {
+            "recognition": self.recognise,
+            "translation": self.translate,
+            "classification": self.classify_topic,
+        }
+        self.naive_outputs = {
+            "recognition": [
+                "outputs",
+            ],
+            "translation": [
+                "full_output",
+                "outputs",
+                "logits",
+            ],
+            "classification": [
+                "scores",
+            ],
+        }
+        self.n_variational_runs = n_variational_runs
+        self.translation_batch_size = translation_batch_size
+
+    def _init_semantic_density(self):
         self.nli_tokenizer = AutoTokenizer.from_pretrained(
             "microsoft/deberta-large-mnli"
         )
@@ -87,48 +121,8 @@ class RTCVariationalPipeline:
             "microsoft/deberta-large-mnli"
         )
 
-        self.pipeline_map = {
-            "recognition": self.OCR,
-            "translation": self.translator,
-            "classification": self.classifier,
-        }
-        self.generate_kwargs = {"output_scores": True}
-
-        self.func_map = {
-            "recognition": self.recognise,
-            "translation": self.translate,
-            "classification": self.classify,
-        }
-        self.naive_outputs = {
-            "recognition": [
-                "outputs",
-                # "logits",
-                # "entropy",
-                # "normalised_entropy",
-                # "probs",
-                # "semantic_embedding",
-            ],
-            "translation": [
-                "full_output",
-                "outputs",
-                "logits",
-                "entropy",
-                "normalised_entropy",
-                "probs",
-                "semantic_embedding",
-            ],
-            "classification": [
-                # "outputs",
-                # "logits",
-                # "entropy",
-                # "normalised_entropy",
-                "probs",
-            ],
-        }
-        self.n_variational_runs = n_variational_runs
-
     @staticmethod
-    def split_inputs(text, split_key):
+    def split_translate_inputs(text, split_key):
         split_rows = text.split(split_key)
         # for when string ends with with the delimiter
         if split_rows[-1] == "":
@@ -137,82 +131,70 @@ class RTCVariationalPipeline:
         return recovered_splits
 
     def check_dropout(self):
-        print("\n\n------------------ Testing Dropout --------------------")
+        logger.debug(
+            "\n\n------------------ Testing Dropout --------------------"
+        )
         for model_key, pl in self.pipeline_map.items():
             # turn on dropout for this model
             set_dropout(model=pl.model, dropout_flag=True)
-            print(f"Model key: {model_key}")
-            test_dropout(pl, True)
+            logger.debug(f"Model key: {model_key}")
+            dropout_count = count_dropout(pipe=pl, dropout_flag=True)
+            logger.debug(
+                f"{dropout_count} dropout layers found in correct configuration."
+            )
+            if dropout_count == 0:
+                raise ValueError(f"No dropout layers found in {model_key}")
             set_dropout(model=pl.model, dropout_flag=False)
-        print("-------------------------------------------------------\n\n")
-
-    def get_sentence_conf(self, sentence):
-        output_logits = sentence["raw_outputs"]["logits"].squeeze()
-        vocab = torch.tensor(output_logits.shape[-1])
-        entropy = Categorical(logits=output_logits).entropy()
-        normalised_entropy = entropy / torch.log(vocab)
-        softmax_logits = softmax(output_logits, dim=-1)
-        max_probs = torch.max(softmax_logits, dim=-1).values
-
-        tokenized_text = self.semantic_tokenizer(
-            sentence["translation_text"],
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
+        logger.debug(
+            "-------------------------------------------------------\n\n"
         )
-        with torch.no_grad():
-            model_embeddings = self.semantic_model(**tokenized_text)
-        # Perform pooling
-        sentence_embeddings = mean_pooling(
-            model_embeddings, tokenized_text["attention_mask"]
-        )
-
-        # Normalize embeddings
-        sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
-        return {
-            "outputs": sentence["translation_text"],
-            "logits": output_logits,
-            "entropy": entropy,
-            "normalised_entropy": normalised_entropy,
-            "probs": max_probs,
-            "semantic_embedding": sentence_embeddings,
-        }
 
     def recognise(self, inp):
         # Until the OCR data is available
+        # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
         return {"outputs": inp}
 
     def translate(self, text):
-        text_splits = self.split_inputs(text, ".")
+        text_splits = self.split_translate_inputs(text, ".")
 
         translator_outputs = self.translator(
-            text_splits, output_logits=True, return_dict_in_generate=True, batch_size=8
+            text_splits,
+            output_logits=True,
+            return_dict_in_generate=True,
+            batch_size=self.translation_batch_size,
         )
         sentence_translations = [
             translator_output["translation_text"]
             for translator_output in translator_outputs
         ]
         full_translation = ("").join(sentence_translations)
+
         confidence_metrics = [
-            self.get_sentence_conf(translator_output)
+            {
+                "outputs": translator_output["translation_text"],
+                "logits": translator_output["raw_outputs"]["logits"],
+            }
             for translator_output in translator_outputs
         ]
+
         stacked_conf_metrics = self.stack_translator_sentence_metrics(
             confidence_metrics
         )
         outputs = {"full_output": full_translation}
         outputs.update(stacked_conf_metrics)
+        # {full translation, sentence translations, logits, semantic embeddings}
         return outputs
 
-    def classify(self, text):
-        forward = self.classifier(text, self.candidate_labels)
-        return {"probs": forward["scores"]}
+    def classify_topic(self, text):
+        forward = self.classifier(text, self.topic_labels)
+        return {"scores": forward["scores"]}
 
     def stack_translator_sentence_metrics(self, all_sentence_metrics):
         stacked = {}
         for metric in self.naive_outputs["translation"][1:]:
             stacked[metric] = [
-                sentence_metrics[metric] for sentence_metrics in all_sentence_metrics
+                sentence_metrics[metric]
+                for sentence_metrics in all_sentence_metrics
             ]
         return stacked
 
@@ -228,55 +210,83 @@ class RTCVariationalPipeline:
 
         self.var_output = new_var_dict
 
+    def sentence_density(
+        self,
+        clean_sentence: str,
+        var_sentences: list[str],
+        var_scores: list[torch.Tensor],
+    ) -> tuple[float, int]:
+        # calc sequence lengths (for sentence weighting)
+        sequence_length = len(
+            self.nli_tokenizer.encode(
+                clean_sentence, padding=True, return_tensors="pt"
+            )[0]
+        )
+
+        kernel_funcs = torch.zeros(self.n_variational_runs)
+        cond_probs = torch.zeros(self.n_variational_runs)
+
+        for var_index, var_sentence in enumerate(var_sentences):
+            nli_inp = clean_sentence + " [SEP] " + var_sentence
+            encoded_nli = self.nli_tokenizer.encode(
+                nli_inp, padding=True, return_tensors="pt"
+            )
+            nli_out = softmax(self.nli_model(encoded_nli)["logits"], dim=-1)[0]
+            contradiction = nli_out[0]
+            neutral = nli_out[1]
+
+            kernel_funcs[var_index] = 1 - (contradiction + (0.5 * neutral))
+
+        # TODO vectorize
+        for var_index, var_sentence in enumerate(var_sentences):
+            softmax_logits = softmax(var_scores[var_index], dim=-1)
+            max_token_scores = torch.max(
+                softmax_logits, dim=-1
+            ).values.squeeze(dim=0)
+            cond_probs[var_index] = torch.pow(
+                torch.prod(max_token_scores, dim=-1), 1 / len(max_token_scores)
+            )
+
+        semantic_density = (
+            1
+            / (torch.sum(cond_probs))
+            * torch.sum(torch.mul(cond_probs, kernel_funcs))
+        )
+        return semantic_density.item(), sequence_length
+
     def translation_semantic_density(self):
+        # from https://arxiv.org/pdf/2302.09664
+        # github impl: https://github.com/lorenzkuhn/semantic_uncertainty
+
         # Broadly:
+
+        # for each sentence in translation:
+        #     use NLI model to determine semantic similarity to clean sentence
+        #     (1 - (contradiction + 0.5 * neutral))
+
+        # take mean, weighted by length of sentence
+
         # Need to loop over the sentences and calculate metrics comparing against clean
-        #   Can we get these whilst we're running it? Probably will move this
         # Average these (weighted by the sequence length?)
         # This is the overall confidence
 
         clean_out = self.clean_output["translation"]["outputs"]
-        var_step = self.var_output["translation"]
+        var_steps = self.var_output["translation"]
         n_sentences = len(clean_out)
         densities = [None] * n_sentences
-        simalarities = [None] * n_sentences
         sequence_lengths = [None] * n_sentences
         for sentence_index, clean_sentence in enumerate(clean_out):
-            sequence_lengths[sentence_index] = len(
-                self.nli_tokenizer.encode(
-                    clean_sentence, padding=True, return_tensors="pt"
-                )[0]
-            )
-            kernel_funcs = torch.zeros(self.n_variational_runs)
-            cond_probs = torch.zeros(self.n_variational_runs)
-            sims = [None] * self.n_variational_runs
-            run_sentences = [
-                run_outputs[sentence_index] for run_outputs in var_step["outputs"]
+            var_sentences = [
+                step[sentence_index] for step in var_steps["outputs"]
             ]
-            for run_index, run_out in enumerate(run_sentences):
-                run_prob = var_step["probs"][run_index][0]
-                nli_inp = clean_sentence + " [SEP] " + run_out
-                encoded_nli = self.nli_tokenizer.encode(
-                    nli_inp, padding=True, return_tensors="pt"
-                )
-                sims[run_index] = cosine_similarity(
-                    self.clean_output["translation"]["semantic_embedding"][
-                        sentence_index
-                    ][0],
-                    var_step["semantic_embedding"][run_index][sentence_index],
-                )
-                nli_out = softmax(self.nli_model(encoded_nli)["logits"], dim=-1)[0]
-                kernel_funcs[run_index] = 1 - (nli_out[0] + (0.5 * nli_out[1]))
-                cond_probs[run_index] = torch.pow(
-                    torch.prod(run_prob, -1), 1 / len(run_prob)
-                )
-            semantic_density = (
-                1
-                / (torch.sum(cond_probs))
-                * torch.sum(torch.mul(cond_probs, kernel_funcs))
+            var_logits = [step[sentence_index] for step in var_steps["logits"]]
+            density, seqlen = self.sentence_density(
+                clean_sentence=clean_sentence,
+                var_sentences=var_sentences,
+                var_scores=var_logits,
             )
-            densities[sentence_index] = semantic_density.item()
-            simalarities[sentence_index] = [sim.item() for sim in sims]
+            densities[sentence_index] = density
+            sequence_lengths[sentence_index] = seqlen
 
         total_len = torch.sum(torch.tensor(sequence_lengths))
         weighted_average = (
@@ -286,15 +296,16 @@ class RTCVariationalPipeline:
         self.var_output["translation"].update(
             {
                 "semantic_densities": densities,
-                "semantic_simalarities": simalarities,
-                "sequence_lengths": sequence_lengths,
                 "weighted_semantic_density": weighted_average.item(),
             }
         )
 
     def get_classification_confidence(self):
         all_preds = torch.stack(
-            [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]]
+            [
+                torch.tensor(pred)
+                for pred in self.var_output["classification"]["scores"]
+            ]
         )
         mean_scores = torch.mean(all_preds, dim=0)
         std_scores = torch.std(all_preds, dim=0)
@@ -319,7 +330,7 @@ class RTCVariationalPipeline:
         self.clean_output["translation"] = self.translate(
             self.clean_output["recognition"]["outputs"]
         )
-        self.clean_output["classification"] = self.classify(
+        self.clean_output["classification"] = self.classify_topic(
             self.clean_output["translation"]["outputs"][0]
         )
 
@@ -358,6 +369,7 @@ class RTCVariationalPipeline:
         return self.clean_output
 
 
+# Translation pipeline with additional functionality to save logits from fwd pass
 class CustomTranslationPipeline(TranslationPipeline):
     def postprocess(
         self,
@@ -390,7 +402,14 @@ class CustomTranslationPipeline(TranslationPipeline):
         output_ids = out["sequences"]
         out_b = output_ids.shape[0]
         if self.framework == "pt":
-            output_ids = output_ids.reshape(in_b, out_b // in_b, *output_ids.shape[1:])
+            output_ids = output_ids.reshape(
+                in_b, out_b // in_b, *output_ids.shape[1:]
+            )
         elif self.framework == "tf":
             raise NotImplementedError
-        return {"output_ids": output_ids, "logits": out["logits"]}
+
+        # logits are a tuple of length output_ids[-1]-1
+        # each element is a tensor of shape (batch_size, vocab_size)
+        logits = torch.stack(out["logits"], dim=1)
+
+        return {"output_ids": output_ids, "logits": logits}

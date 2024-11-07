@@ -17,7 +17,7 @@ def set_dropout(model: torch.nn.Module, dropout_flag: bool) -> None:
             param.train(dropout_flag)
 
 
-def test_dropout(pipe: Pipeline, dropout_flag: bool):
+def count_dropout(pipe: Pipeline, dropout_flag: bool) -> int:
     model = pipe.model
     dropout_count = 0
     for _, param in model.named_modules():
@@ -25,4 +25,4 @@ def test_dropout(pipe: Pipeline, dropout_flag: bool):
             dropout_count += 1
             assert param.training == dropout_flag
 
-    print(f"{dropout_count} dropout layers found in correct configuration.")
+    return dropout_count
