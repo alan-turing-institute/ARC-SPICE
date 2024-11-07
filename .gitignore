@@ -161,6 +161,7 @@ Thumbs.db
 
 # project related
 data/Taxi1500*
+slurm_scripts/slurm_logs*
 # other
 temp
 .vscode

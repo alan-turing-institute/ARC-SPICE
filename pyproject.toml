@@ -34,7 +34,11 @@ dependencies = [
   "numpy",
   "sentencepiece",
   "librosa",
-  "soundfile"
+  "soundfile",
+  "torch",
+  "torcheval",
+  "pillow",
+  "unbabel-comet"
 ]
 
 [project.optional-dependencies]

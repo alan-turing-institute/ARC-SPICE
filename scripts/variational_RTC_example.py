@@ -68,7 +68,12 @@ def main(RTC_pars):
         }
     ]
 
-    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator="cpu")
+    device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available() else "cpu"
+    )
+    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator=device)
     comet_scores = comet_output["scores"]
 
     print(f"COMET: {comet_scores[0]}")
