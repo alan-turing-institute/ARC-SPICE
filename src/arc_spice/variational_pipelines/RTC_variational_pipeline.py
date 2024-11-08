@@ -46,6 +46,7 @@ class RTCVariationalPipeline:
             else "mps" if torch.backends.mps.is_available() else "cpu"
         )
         print(f"Loading pipeline on device: {device}")
+        device = "cpu"
 
         self.OCR = pipeline(
             task=model_pars["OCR"]["specific_task"],
@@ -102,26 +103,16 @@ class RTCVariationalPipeline:
         self.naive_outputs = {
             "recognition": [
                 "outputs",
-                # "logits",
-                # "entropy",
-                # "normalised_entropy",
-                # "probs",
-                # "semantic_embedding",
             ],
             "translation": [
                 "full_output",
                 "outputs",
-                "logits",
                 "entropy",
                 "normalised_entropy",
                 "probs",
                 "semantic_embedding",
             ],
             "classification": [
-                # "outputs",
-                # "logits",
-                # "entropy",
-                # "normalised_entropy",
                 "probs",
             ],
         }
@@ -171,7 +162,6 @@ class RTCVariationalPipeline:
         sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
         return {
             "outputs": sentence["translation_text"],
-            "logits": output_logits,
             "entropy": entropy,
             "normalised_entropy": normalised_entropy,
             "probs": max_probs,
@@ -270,10 +260,8 @@ class RTCVariationalPipeline:
                 cond_probs[run_index] = torch.pow(
                     torch.prod(run_prob, -1), 1 / len(run_prob)
                 )
-            semantic_density = (
-                1
-                / (torch.sum(cond_probs))
-                * torch.sum(torch.mul(cond_probs, kernel_funcs))
+            semantic_density = (1 / torch.sum(cond_probs)) * torch.sum(
+                torch.mul(cond_probs, kernel_funcs)
             )
             densities[sentence_index] = semantic_density.item()
             simalarities[sentence_index] = [sim.item() for sim in sims]
@@ -292,16 +280,36 @@ class RTCVariationalPipeline:
             }
         )
 
-    def get_classification_confidence(self):
-        all_preds = torch.stack(
-            [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]]
+    def get_classification_confidence(self, epsilon=1e-15):
+        stacked_probs = torch.stack(
+            [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]],
+            dim=1,
         )
-        mean_scores = torch.mean(all_preds, dim=0)
-        std_scores = torch.std(all_preds, dim=0)
+
+        means = torch.mean(stacked_probs, dim=-1)
+
+        pred_entropies = -1 * (
+            means * torch.log(means + epsilon)
+            + (1 - means) * torch.log((1 - means) + epsilon)
+        )
+
+        all_entropies = -1 * (
+            stacked_probs * torch.log(stacked_probs + epsilon)
+            + (1 - stacked_probs) * torch.log((1 - stacked_probs) + epsilon)
+        )
+
+        mutual_info = pred_entropies - torch.mean(all_entropies, dim=-1)
+
+        stds = torch.std(stacked_probs, dim=-1)
+        variances = torch.var(stacked_probs, dim=-1)
+
         self.var_output["classification"].update(
             {
-                "mean_scores": mean_scores,
-                "std_scores": std_scores,
+                "mean_scores": means,
+                "std_scores": stds,
+                "var_scores": variances,
+                "predicted_entropy": pred_entropies,
+                "mutual_information": mutual_info,
             }
         )
 
@@ -393,4 +401,9 @@ class CustomTranslationPipeline(TranslationPipeline):
             output_ids = output_ids.reshape(in_b, out_b // in_b, *output_ids.shape[1:])
         elif self.framework == "tf":
             raise NotImplementedError
-        return {"output_ids": output_ids, "logits": out["logits"]}
+
+        # logits are a tuple of length output_ids[-1]-1
+        # each element is a tensor of shape (batch_size, vocab_size)
+        logits = torch.stack(out["logits"], dim=1)
+
+        return {"output_ids": output_ids, "logits": logits}

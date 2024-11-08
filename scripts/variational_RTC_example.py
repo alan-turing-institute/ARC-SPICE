@@ -10,7 +10,11 @@ from torch.nn.functional import binary_cross_entropy
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_dataloader import MultiHot, load_multieurlex
-from arc_spice.eval.classification_error import aggregate_score, hamming_accuracy
+from arc_spice.eval.classification_error import (
+    MC_dropout_scores,
+    aggregate_score,
+    hamming_accuracy,
+)
 from arc_spice.eval.translation_error import get_bleu_score
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
@@ -19,7 +23,24 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 MAX_LEN = 256
 
 
+def get_test_row(train_data):
+    return {
+        "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux.",
+        "target_text": "The quick brown fox jumped over the lazy dog.",
+        "class_labels": [0, 1],
+    }
+
+
 def main(RTC_pars):
+    # out = []
+    # for _ in range(5):
+    #     out.append(torch.rand(20).tolist())
+    # outs = MC_dropout_scores(out)
+
+    # print(torch.mean(outs["mutual_information"]))
+    # print(torch.mean(outs["variance"]))
+    # return None
+
     lang_pair = {"source": "fr", "target": "en"}
     [train, _, _], metadata_params = load_multieurlex(level=1, lang_pair=lang_pair)
     row_iterator = iter(train)
@@ -29,8 +50,7 @@ def main(RTC_pars):
     # Load the model checkpoint:
     comet_model = load_from_checkpoint(comet_model_pth)
 
-    for _ in range(0, randint(1, 25)):
-        test_row = next(row_iterator)
+    test_row = next(row_iterator)
 
     with open("temp/test_output.txt", "w") as text_file:
         text_file.write("Purchase Amount: %s" % test_row["source_text"])
@@ -47,8 +67,14 @@ def main(RTC_pars):
     preds = torch.round(mean_scores)
     hamming_acc = hamming_accuracy(preds=preds, class_labels=class_labels)
     print(f"hamming accuracy: {hamming_acc}")
-    confidence_score = aggregate_score(probs=mean_scores)
-    print(f"confidence score: {confidence_score}")
+
+    mean_entropy = torch.mean(RTC.var_output["classification"]["predicted_entropy"])
+    mean_variances = torch.mean(RTC.var_output["classification"]["var_scores"])
+    mean_MI = torch.mean(RTC.var_output["classification"]["mutual_information"])
+
+    print("Predictive entropy: " f"{mean_entropy}")
+    print("MI (model uncertainty): " f"{mean_MI}")
+    print("Variance (model uncertainty): " f"{mean_variances}")
 
     print("\nTranslation:")
     source_text = test_row["target_text"]
@@ -65,12 +91,9 @@ def main(RTC_pars):
         }
     ]
 
-    device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps" if torch.backends.mps.is_available() else "cpu"
-    )
-    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator=device)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator="cpu")
     comet_scores = comet_output["scores"]
     print(f"COMET: {comet_scores[0]}")
 
