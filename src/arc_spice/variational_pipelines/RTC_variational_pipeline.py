@@ -281,6 +281,7 @@ class RTCVariationalPipeline:
         )
 
     def get_classification_confidence(self, epsilon=1e-15):
+        # From: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9761166
         stacked_probs = torch.stack(
             [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]],
             dim=1,

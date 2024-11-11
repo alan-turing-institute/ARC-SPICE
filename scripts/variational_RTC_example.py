@@ -69,10 +69,12 @@ def main(RTC_pars):
     print(f"hamming accuracy: {hamming_acc}")
 
     mean_entropy = torch.mean(RTC.var_output["classification"]["predicted_entropy"])
+    mean_std = torch.mean(RTC.var_output["classification"]["std_scores"])
     mean_variances = torch.mean(RTC.var_output["classification"]["var_scores"])
     mean_MI = torch.mean(RTC.var_output["classification"]["mutual_information"])
 
     print("Predictive entropy: " f"{mean_entropy}")
+    print("Standard deviation: " f"{mean_std}")
     print("MI (model uncertainty): " f"{mean_MI}")
     print("Variance (model uncertainty): " f"{mean_variances}")
 
@@ -93,7 +95,7 @@ def main(RTC_pars):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator="cpu")
+    comet_output = comet_model.predict(comet_inp, batch_size=8, accelerator=device)
     comet_scores = comet_output["scores"]
     print(f"COMET: {comet_scores[0]}")
 
