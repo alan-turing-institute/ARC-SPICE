@@ -101,7 +101,7 @@ class RTCVariationalPipeline:
             "translation": [
                 "full_output",
                 "outputs",
-                "logits",
+                "probs",
             ],
             "classification": [
                 "scores",
@@ -163,10 +163,13 @@ class RTCVariationalPipeline:
         ]
         full_translation = ("").join(sentence_translations)
 
+        softmax_logits = softmax(translator_outputs[0]["raw_outputs"]["logits"], dim=-1)
+        max_token_scores = torch.max(softmax_logits, dim=-1).values.squeeze(dim=0)
+
         confidence_metrics = [
             {
                 "outputs": translator_output["translation_text"],
-                "logits": translator_output["raw_outputs"]["logits"],
+                "probs": max_token_scores,
             }
             for translator_output in translator_outputs
         ]
@@ -231,15 +234,13 @@ class RTCVariationalPipeline:
             kernel_funcs[var_index] = 1 - (contradiction + (0.5 * neutral))
 
         # TODO vectorize
-        for var_index, var_sentence in enumerate(var_sentences):
-            softmax_logits = softmax(var_scores[var_index], dim=-1)
-            max_token_scores = torch.max(softmax_logits, dim=-1).values.squeeze(dim=0)
-            cond_probs[var_index] = torch.pow(
-                torch.prod(max_token_scores, dim=-1), 1 / len(max_token_scores)
+        for var_index, var_score in enumerate(var_scores):
+            cond_probs[var_index] = torch.prod(
+                torch.pow(var_score, 1 / len(var_score)), dim=-1
             )
 
-        semantic_density = (
-            1 / (torch.sum(cond_probs)) * torch.sum(torch.mul(cond_probs, kernel_funcs))
+        semantic_density = (1 / torch.sum(cond_probs)) * torch.sum(
+            torch.mul(cond_probs, kernel_funcs)
         )
         return semantic_density.item(), sequence_length
 
@@ -266,11 +267,11 @@ class RTCVariationalPipeline:
         sequence_lengths = [None] * n_sentences
         for sentence_index, clean_sentence in enumerate(clean_out):
             var_sentences = [step[sentence_index] for step in var_steps["outputs"]]
-            var_logits = [step[sentence_index] for step in var_steps["logits"]]
+            var_probs = [step[sentence_index] for step in var_steps["probs"]]
             density, seqlen = self.sentence_density(
                 clean_sentence=clean_sentence,
                 var_sentences=var_sentences,
-                var_scores=var_logits,
+                var_scores=var_probs,
             )
             densities[sentence_index] = density
             sequence_lengths[sentence_index] = seqlen
@@ -290,7 +291,10 @@ class RTCVariationalPipeline:
     def get_classification_confidence(self, epsilon=1e-15):
         # From: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9761166
         stacked_probs = torch.stack(
-            [torch.tensor(pred) for pred in self.var_output["classification"]["probs"]],
+            [
+                torch.tensor(pred)
+                for pred in self.var_output["classification"]["scores"]
+            ],
             dim=1,
         )
 

@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torch.nn.functional import binary_cross_entropy
 
-from arc_spice.data.multieurlex_dataloader import MultiHot, load_multieurlex
+from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex
 from arc_spice.eval.classification_error import hamming_accuracy
 from arc_spice.eval.translation_error import get_comet_model
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
@@ -46,7 +46,7 @@ def get_test_row(train_data):
     return test_row
 
 
-# debug row if needed
+# # debug row if needed
 # def get_test_row(train_data):
 #     return {
 #         "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",

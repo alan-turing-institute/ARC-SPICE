@@ -14,20 +14,27 @@ with open("data/MultiEURLEX/data/eurovoc_descriptors.json", "r") as descriptors_
     descriptors_file.close()
 
 
-class MultiEURLEXDataset(Dataset):
+class MultiHot:
+    def __init__(self, n_classes):
+        self.n_classes = n_classes
 
-    def __init__(
-        self,
-        data,
-        language_pair: dict[str:str, str:str],
-        split,
-    ) -> None:
-        self.data = data[split]
-        self.language_pair = language_pair
+    def __call__(self, class_labels):
+        one_hot_class_labels = one_hot(
+            torch.tensor(class_labels),
+            num_classes=self.n_classes,
+        )
+        one_hot_multi_class = torch.sum(one_hot_class_labels, dim=0)
+        return one_hot_multi_class
 
-    def preprocess(self, data_row):
-        source_text = data_row["text"][self.language_pair["source"]]
-        target_text = data_row["text"][self.language_pair["target"]]
+
+class PreProcesser:
+    def __init__(self, language_pair):
+        self.source_language = language_pair["source"]
+        self.target_language = language_pair["target"]
+
+    def __call__(self, data_row):
+        source_text = data_row["text"][self.source_language]
+        target_text = data_row["text"][self.target_language]
         labels = data_row["labels"]
         row = {
             "source_text": source_text,
@@ -35,12 +42,6 @@ class MultiEURLEXDataset(Dataset):
             "class_labels": labels,
         }
         return row
-
-    def __getitem__(self, index):
-        return self.preprocess(self.data[index])
-
-    def __len__(self):
-        return len(self.data)
 
 
 def load_multieurlex(level, lang_pair):
@@ -65,25 +66,9 @@ def load_multieurlex(level, lang_pair):
         "class_labels": classes,
         "class_descriptors": descriptors,
     }
-    train_dataset = MultiEURLEXDataset(
-        data=data, language_pair=lang_pair, split="train"
-    )
-    test_dataset = MultiEURLEXDataset(data=data, language_pair=lang_pair, split="train")
-    val_dataset = MultiEURLEXDataset(
-        data=data, language_pair=lang_pair, split="validation"
-    )
+    preprocesser = PreProcesser(lang_pair)
 
+    train_dataset = data["train"].map(preprocesser, remove_columns=["text"])
+    test_dataset = data["test"].map(preprocesser, remove_columns=["text"])
+    val_dataset = data["validation"].map(preprocesser, remove_columns=["text"])
     return [train_dataset, test_dataset, val_dataset], meta_data
-
-
-class MultiHot:
-    def __init__(self, n_classes):
-        self.n_classes = n_classes
-
-    def __call__(self, class_labels):
-        one_hot_class_labels = one_hot(
-            torch.tensor(class_labels),
-            num_classes=self.n_classes,
-        )
-        one_hot_multi_class = torch.sum(one_hot_class_labels, dim=0)
-        return one_hot_multi_class
