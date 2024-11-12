@@ -223,7 +223,7 @@ class RTCVariationalPipeline:
         cond_probs = torch.zeros(self.n_variational_runs)
 
         for var_index, var_sentence in enumerate(var_sentences):
-            nli_inp = clean_sentence + " [SEP] " + var_sentence
+            nli_inp = "[CLS]" + clean_sentence + " [SEP] " + var_sentence + "[SEP]"
             encoded_nli = self.nli_tokenizer.encode(
                 nli_inp, padding=True, return_tensors="pt"
             )
@@ -245,8 +245,8 @@ class RTCVariationalPipeline:
         return semantic_density.item(), sequence_length
 
     def translation_semantic_density(self):
-        # from https://arxiv.org/pdf/2302.09664
-        # github impl: https://github.com/lorenzkuhn/semantic_uncertainty
+        # from https://arxiv.org/pdf/2405.13845
+        # MLNI impl: https://huggingface.co/microsoft/deberta-large-mnli
 
         # Broadly:
 
