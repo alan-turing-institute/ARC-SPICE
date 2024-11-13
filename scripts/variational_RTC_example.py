@@ -32,7 +32,6 @@ def seed_everything(seed):
 def load_test_row():
     lang_pair = {"source": "fr", "target": "en"}
     (train, _, _), metadata_params = load_multieurlex(level=1, lang_pair=lang_pair)
-    # TODOO refactor
     multi_onehot = MultiHot(metadata_params["n_classes"])
     test_row = get_test_row(train)
     class_labels = multi_onehot(test_row["class_labels"])
@@ -43,26 +42,19 @@ def get_test_row(train_data):
     row_iterator = iter(train_data)
     for _ in range(0, randint(1, 25)):
         test_row = next(row_iterator)
+
+    # debug row if needed
+    # return {
+    #     "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",
+    #     "target_text": "The quick brown fox jumped over the lazy dog. The fox jumped over the lazy dog",
+    #     "class_labels": [0, 1],
+    # }
+    # Normal row
     return test_row
 
 
-# # debug row if needed
-# def get_test_row(train_data):
-#     return {
-#         "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",
-#         "target_text": "The quick brown fox jumped over the lazy dog. The fox jumped over the lazy dog",
-#         "class_labels": [0, 1],
-#     }
-
-
 def print_results(rtc_variational_pipeline, class_labels, test_row, comet_model):
-    print("\nClassification:")
-    mean_scores = rtc_variational_pipeline.var_output["classification"]["mean_scores"]
-    print(f"BCE: {binary_cross_entropy(mean_scores.float(), class_labels.float())}")
-    preds = torch.round(mean_scores)
-    hamming_acc = hamming_accuracy(preds=preds, class_labels=class_labels)
-    print(f"hamming accuracy: {hamming_acc}")
-
+    # ### TRANSLATION ###
     print("\nTranslation:")
     source_text = test_row["target_text"]
     target_text = test_row["target_text"]
@@ -113,7 +105,6 @@ def print_results(rtc_variational_pipeline, class_labels, test_row, comet_model)
 
 
 def main(RTC_pars):
-
     seed_everything(seed=42)
 
     logging.basicConfig(level=logging.INFO)

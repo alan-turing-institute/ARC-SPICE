@@ -2,6 +2,7 @@ import json
 
 import torch
 from datasets import load_dataset
+from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
 from torch.utils.data import Dataset
 
@@ -12,6 +13,8 @@ with open("data/MultiEURLEX/data/eurovoc_concepts.json", "r") as concepts_file:
 with open("data/MultiEURLEX/data/eurovoc_descriptors.json", "r") as descriptors_file:
     class_descriptors = json.loads(descriptors_file.read())
     descriptors_file.close()
+
+ARTICLE_1_MARKERS = {"en": "\nArticle 1\n", "fr": "\nArticle premier\n"}
 
 
 class MultiHot:
@@ -25,6 +28,30 @@ class MultiHot:
         )
         one_hot_multi_class = torch.sum(one_hot_class_labels, dim=0)
         return one_hot_multi_class
+
+
+def _extract_articles(text: str, article_1_marker: str):
+    start = text.find(article_1_marker)
+
+    if start == -1:
+        return None
+
+    return text[start:]
+
+
+def extract_articles(item: LazyRow, lang_pair: dict[str:str]):
+    lang_source = lang_pair["source"]
+    lang_target = lang_pair["target"]
+    return {
+        "source_text": _extract_articles(
+            text=item["source_text"],
+            article_1_marker=ARTICLE_1_MARKERS[lang_source],
+        ),
+        "target_text": _extract_articles(
+            text=item["target_text"],
+            article_1_marker=ARTICLE_1_MARKERS[lang_target],
+        ),
+    }
 
 
 class PreProcesser:
@@ -69,6 +96,18 @@ def load_multieurlex(level, lang_pair):
     preprocesser = PreProcesser(lang_pair)
 
     train_dataset = data["train"].map(preprocesser, remove_columns=["text"])
+    extracted_train = train_dataset.map(
+        extract_articles,
+        fn_kwargs={"lang_pair": lang_pair},
+    )
     test_dataset = data["test"].map(preprocesser, remove_columns=["text"])
+    extracted_test = train_dataset.map(
+        extract_articles,
+        fn_kwargs={"lang_pair": lang_pair},
+    )
     val_dataset = data["validation"].map(preprocesser, remove_columns=["text"])
-    return [train_dataset, test_dataset, val_dataset], meta_data
+    extracted_val = train_dataset.map(
+        extract_articles,
+        fn_kwargs={"lang_pair": lang_pair},
+    )
+    return [extracted_train, extracted_test, extracted_val], meta_data
