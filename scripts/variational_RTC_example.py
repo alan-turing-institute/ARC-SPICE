@@ -31,7 +31,9 @@ def seed_everything(seed):
 
 def load_test_row():
     lang_pair = {"source": "fr", "target": "en"}
-    (train, _, _), metadata_params = load_multieurlex(level=1, lang_pair=lang_pair)
+    (train, _, _), metadata_params = load_multieurlex(
+        data_dir="data", level=1, lang_pair=lang_pair
+    )
     multi_onehot = MultiHot(metadata_params["n_classes"])
     test_row = get_test_row(train)
     class_labels = multi_onehot(test_row["class_labels"])
@@ -44,26 +46,22 @@ def get_test_row(train_data):
         test_row = next(row_iterator)
 
     # debug row if needed
-    # return {
-    #     "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",
-    #     "target_text": "The quick brown fox jumped over the lazy dog. The fox jumped over the lazy dog",
-    #     "class_labels": [0, 1],
-    # }
+    return {
+        "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",
+        "target_text": "The quick brown fox jumped over the lazy dog. The fox jumped over the lazy dog",
+        "class_labels": [0, 1],
+    }
     # Normal row
     return test_row
 
 
-def print_results(rtc_variational_pipeline, class_labels, test_row, comet_model):
+def print_results(clean_output, var_output, class_labels, test_row, comet_model):
     # ### TRANSLATION ###
     print("\nTranslation:")
     source_text = test_row["target_text"]
     target_text = test_row["target_text"]
-    clean_translation = rtc_variational_pipeline.clean_output["translation"][
-        "full_output"
-    ]
-    print(
-        f"Semantic density: {rtc_variational_pipeline.var_output['translation']['weighted_semantic_density']}"
-    )
+    clean_translation = clean_output["translation"]["full_output"]
+    print(f"Semantic density: {var_output['translation']['weighted_semantic_density']}")
 
     # load error model
     comet_inp = [
@@ -83,28 +81,22 @@ def print_results(rtc_variational_pipeline, class_labels, test_row, comet_model)
 
     # ### CLASSIFICATION ###
     print("\nClassification:")
-    mean_scores = rtc_variational_pipeline.var_output["classification"]["mean_scores"]
+    mean_scores = var_output["classification"]["mean_scores"]
     print(f"BCE: {binary_cross_entropy(mean_scores.float(), class_labels.float())}")
     preds = torch.round(mean_scores)
     hamming_acc = hamming_accuracy(preds=preds, class_labels=class_labels)
     print(f"hamming accuracy: {hamming_acc}")
 
-    mean_entropy = torch.mean(
-        rtc_variational_pipeline.var_output["classification"]["predicted_entropy"]
-    )
-    mean_variances = torch.mean(
-        rtc_variational_pipeline.var_output["classification"]["var_scores"]
-    )
-    mean_MI = torch.mean(
-        rtc_variational_pipeline.var_output["classification"]["mutual_information"]
-    )
+    mean_entropy = torch.mean(var_output["classification"]["predicted_entropy"])
+    mean_variances = torch.mean(var_output["classification"]["var_scores"])
+    mean_MI = torch.mean(var_output["classification"]["mutual_information"])
 
     print("Predictive entropy: " f"{mean_entropy}")
     print("MI (model uncertainty): " f"{mean_MI}")
     print("Variance (model uncertainty): " f"{mean_variances}")
 
 
-def main(RTC_pars):
+def main(rtc_pars):
     seed_everything(seed=42)
 
     logging.basicConfig(level=logging.INFO)
@@ -112,21 +104,23 @@ def main(RTC_pars):
     test_row, class_labels, metadata_params = load_test_row()
 
     # initialise pipeline
-    rtc_variational_pipeline = RTCVariationalPipeline(RTC_pars, metadata_params)
+    rtc_variational_pipeline = RTCVariationalPipeline(rtc_pars, metadata_params)
 
     # check dropout exists
     rtc_variational_pipeline.check_dropout()
 
     # perform variational inference
-    rtc_variational_pipeline.variational_inference(test_row["source_text"])
+    clean_output, var_output = rtc_variational_pipeline.variational_inference(
+        test_row["source_text"]
+    )
 
     comet_model = get_comet_model()
 
-    print_results(rtc_variational_pipeline, class_labels, test_row, comet_model)
+    print_results(clean_output, var_output, class_labels, test_row, comet_model)
 
 
 if __name__ == "__main__":
-    RTC_pars = {
+    rtc_pars = {
         "OCR": {
             "specific_task": "image-to-text",
             "model": "microsoft/trocr-base-handwritten",
@@ -140,4 +134,4 @@ if __name__ == "__main__":
             "model": "claritylab/zero-shot-explicit-binary-bert",
         },
     }
-    main(RTC_pars=RTC_pars)
+    main(rtc_pars=rtc_pars)

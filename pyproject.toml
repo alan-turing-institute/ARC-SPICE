@@ -34,7 +34,6 @@ dependencies = [
   "numpy",
   "sentencepiece",
   "librosa",
-  "soundfile",
   "torch",
   "torcheval",
   "pillow",

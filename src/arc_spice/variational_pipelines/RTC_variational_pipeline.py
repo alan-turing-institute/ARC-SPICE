@@ -18,9 +18,6 @@ from arc_spice.variational_pipelines.dropout_utils import (
     set_dropout,
 )
 
-# From huggingface page with model:
-#   - https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
-
 logger = logging.Logger("RTC_variational_pipeline")
 
 
@@ -61,7 +58,7 @@ class RTCVariationalPipeline:
         logging.info(f"Loading pipeline on device: {device}")
 
         # defining the pipeline objects
-        self.OCR = pipeline(
+        self.ocr = pipeline(
             task=model_pars["OCR"]["specific_task"],
             model=model_pars["OCR"]["model"],
             device=device,
@@ -89,7 +86,7 @@ class RTCVariationalPipeline:
 
         # map pipeline names to their pipeline counterparts
         self.pipeline_map = {
-            "recognition": self.OCR,
+            "recognition": self.ocr,
             "translation": self.translator,
             "classification": self.classifier,
         }
@@ -259,7 +256,7 @@ class RTCVariationalPipeline:
             ]
         return stacked
 
-    def stack_variational_outputs(self):
+    def stack_variational_outputs(self, var_output):
         """
         Similar to above but this stacks variational output dictinaries into lists
         under a single key.
@@ -267,7 +264,7 @@ class RTCVariationalPipeline:
         # Create new dict
         new_var_dict = {}
         # For each key create a new dict
-        for step in self.var_output.keys():
+        for step in var_output.keys():
             new_var_dict[step] = {}
             # for each metric in a clean inference run (naive_ouputs)
             for metric in self.naive_outputs[step]:
@@ -275,10 +272,10 @@ class RTCVariationalPipeline:
                 new_values = [None] * self.n_variational_runs
                 # populate list with items and assign it in new dictionary
                 for run in range(self.n_variational_runs):
-                    new_values[run] = self.var_output[step][run][metric]
+                    new_values[run] = var_output[step][run][metric]
                 new_var_dict[step][metric] = new_values
         # overwrite the existing output dictionary
-        self.var_output = new_var_dict
+        return new_var_dict
 
     def sentence_density(
         self,
@@ -334,7 +331,9 @@ class RTCVariationalPipeline:
 
         return semantic_density.item(), sequence_length
 
-    def translation_semantic_density(self) -> dict[str : Union[float, list[float]]]:
+    def translation_semantic_density(
+        self, clean_output, var_output: dict
+    ) -> dict[str : Union[float, list[float]]]:
         """
         Runs the semantic density measurement from https://arxiv.org/pdf/2405.13845.
 
@@ -350,8 +349,8 @@ class RTCVariationalPipeline:
         Average these, weighted by the sequence length giving the overall confidence.
         """
         # get the clean and variational output and record number of sentences
-        clean_out = self.clean_output["translation"]["outputs"]
-        var_steps = self.var_output["translation"]
+        clean_out = clean_output["translation"]["outputs"]
+        var_steps = var_output["translation"]
         n_sentences = len(clean_out)
         # define empty lists for the measurements
         densities = [None] * n_sentences
@@ -377,29 +376,29 @@ class RTCVariationalPipeline:
             / total_len
         )
         # update the output dict
-        self.var_output["translation"].update(
+        var_output["translation"].update(
             {
                 "semantic_densities": densities,
                 "weighted_semantic_density": weighted_average.item(),
             }
         )
 
+        return var_output
+
     def get_classification_confidence(
-        self, epsilon: float = 1e-15
+        self, var_output: dict, epsilon: float = 1e-15
     ) -> dict[str : Union[float, torch.Tensor]]:
         """
         _summary_
 
         Args:
+            var_output: the variational_input on which to act
             epsilon: _description_. Defaults to 1e-15.
         """
         # From: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9761166
         # stack probabilities into single tensor
         stacked_probs = torch.stack(
-            [
-                torch.tensor(pred)
-                for pred in self.var_output["classification"]["scores"]
-            ],
+            [torch.tensor(pred) for pred in var_output["classification"]["scores"]],
             dim=1,
         )
         # calculate mean predictions
@@ -421,7 +420,7 @@ class RTCVariationalPipeline:
         stds = torch.std(stacked_probs, dim=-1)
         variances = torch.var(stacked_probs, dim=-1)
         # return all metrics
-        self.var_output["classification"].update(
+        var_output["classification"].update(
             {
                 "mean_scores": means,
                 "std_scores": stds,
@@ -430,11 +429,12 @@ class RTCVariationalPipeline:
                 "mutual_information": mutual_info,
             }
         )
+        return var_output
 
     def clean_inference(self, x: torch.Tensor) -> dict[str:dict]:
         """Run the pipeline on an input x"""
         # define output dictionary
-        self.clean_output = {
+        clean_output = {
             "recognition": {},
             "translation": {},
             "classification": {},
@@ -442,23 +442,24 @@ class RTCVariationalPipeline:
 
         # run the functions
         # UNTIL THE OCR DATA IS AVAILABLE
-        self.clean_output["recognition"] = self.recognise(x)
+        clean_output["recognition"] = self.recognise(x)
 
-        self.clean_output["translation"] = self.translate(
-            self.clean_output["recognition"]["outputs"]
+        clean_output["translation"] = self.translate(
+            clean_output["recognition"]["outputs"]
         )
-        self.clean_output["classification"] = self.classify_topic(
-            self.clean_output["translation"]["outputs"][0]
+        clean_output["classification"] = self.classify_topic(
+            clean_output["translation"]["outputs"][0]
         )
+        return clean_output
 
     def variational_inference(self, x: torch.Tensor) -> dict[str:dict]:
         """
         runs the variational inference with the pipeline
         """
         # ...first run clean inference
-        self.clean_inference(x)
+        clean_output = self.clean_inference(x)
         # define output dictionary
-        self.var_output = {
+        var_output = {
             "recognition": [None] * self.n_variational_runs,
             "translation": [None] * self.n_variational_runs,
             "classification": [None] * self.n_variational_runs,
@@ -466,8 +467,8 @@ class RTCVariationalPipeline:
         # define the input map for brevity in forward pass
         input_map = {
             "recognition": x,
-            "translation": self.clean_output["recognition"]["outputs"],
-            "classification": self.clean_output["translation"]["full_output"],
+            "translation": clean_output["recognition"]["outputs"],
+            "classification": clean_output["translation"]["full_output"],
         }
 
         # for each model in pipeline
@@ -477,7 +478,7 @@ class RTCVariationalPipeline:
             torch.nn.functional.dropout = dropout_on
             # do n runs of the inference
             for run_idx in range(self.n_variational_runs):
-                self.var_output[model_key][run_idx] = self.func_map[model_key](
+                var_output[model_key][run_idx] = self.func_map[model_key](
                     input_map[model_key]
                 )
             # turn off dropout for this model
@@ -485,14 +486,17 @@ class RTCVariationalPipeline:
             torch.nn.functional.dropout = dropout_off
 
         # run metric helper functions
-        self.stack_variational_outputs()
-        self.translation_semantic_density()
-        self.get_classification_confidence()
+        var_output = self.stack_variational_outputs(var_output)
+        var_output = self.translation_semantic_density(
+            clean_output=clean_output, var_output=var_output
+        )
+        var_output = self.get_classification_confidence(var_output)
+
+        return clean_output, var_output
 
     # on standard call return the clean output
     def __call__(self, x):
-        self.clean_inference(x)
-        return self.clean_output
+        return self.clean_inference(x)
 
 
 # Translation pipeline with additional functionality to save logits from fwd pass

@@ -5,15 +5,6 @@ import torch
 from datasets import load_dataset
 from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
-from torch.utils.data import Dataset
-
-with open("data/MultiEURLEX/data/eurovoc_concepts.json", "r") as concepts_file:
-    class_concepts = json.loads(concepts_file.read())
-    concepts_file.close()
-
-with open("data/MultiEURLEX/data/eurovoc_descriptors.json", "r") as descriptors_file:
-    class_descriptors = json.loads(descriptors_file.read())
-    descriptors_file.close()
 
 # For identifying where the adopted decisions begin
 ARTICLE_1_MARKERS = {"en": "\nArticle 1\n", "fr": "\nArticle premier\n"}
@@ -91,12 +82,13 @@ class PreProcesser:
 
 
 def load_multieurlex(
-    level: int, lang_pair: dict[str:str]
-) -> tuple[list[Dataset], dict[str : Union[int, list]]]:
+    data_dir: str, level: int, lang_pair: dict[str:str]
+) -> tuple[list, dict[str : Union[int, list]]]:
     """
     load the multieurlex dataset
 
     Args:
+        data_dir: root directory for the dataset class descriptors and concepts
         level: level of hierarchy/specicifity of the labels
         lang_pair: dictionary specifying the language pair.
 
@@ -104,6 +96,17 @@ def load_multieurlex(
         List of datasets and a dictionary with some metadata information
     """
     assert level in [1, 2, 3], "there are 3 levels of hierarchy: 1,2,3."
+    with open(
+        f"{data_dir}/MultiEURLEX/data/eurovoc_concepts.json", "r"
+    ) as concepts_file:
+        class_concepts = json.loads(concepts_file.read())
+        concepts_file.close()
+
+    with open(
+        f"{data_dir}/MultiEURLEX/data/eurovoc_descriptors.json", "r"
+    ) as descriptors_file:
+        class_descriptors = json.loads(descriptors_file.read())
+        descriptors_file.close()
     # format level for the class descriptor dictionary, add these to a list
     level = f"level_{level}"
     classes = class_concepts[level]
@@ -127,20 +130,14 @@ def load_multieurlex(
     # instantiate the preprocessor
     preprocesser = PreProcesser(lang_pair)
     # preprocess each split
-    train_dataset = data["train"].map(preprocesser, remove_columns=["text"])
-    extracted_train = train_dataset.map(
-        extract_articles,
-        fn_kwargs={"lang_pair": lang_pair},
-    )
-    test_dataset = data["test"].map(preprocesser, remove_columns=["text"])
-    extracted_test = train_dataset.map(
-        extract_articles,
-        fn_kwargs={"lang_pair": lang_pair},
-    )
-    val_dataset = data["validation"].map(preprocesser, remove_columns=["text"])
-    extracted_val = train_dataset.map(
+    dataset = data.map(preprocesser, remove_columns=["text"])
+    extracted_dataset = dataset.map(
         extract_articles,
         fn_kwargs={"lang_pair": lang_pair},
     )
     # return datasets and metadata
-    return [extracted_train, extracted_test, extracted_val], meta_data
+    return [
+        extracted_dataset["train"],
+        extracted_dataset["test"],
+        extracted_dataset["validation"],
+    ], meta_data
