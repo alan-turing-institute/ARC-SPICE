@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import Any, Union
+from typing import Any
 
 import torch
 from torch.nn.functional import softmax
@@ -42,20 +42,21 @@ class RTCVariationalPipeline:
 
     def __init__(
         self,
-        model_pars: dict[str : dict[str:str]],
+        model_pars: dict[str, dict[str, str]],
         data_pars,
         n_variational_runs=5,
         translation_batch_size=8,
     ) -> None:
-
         # device for inference
         device = (
             "cuda"
             if torch.cuda.is_available()
-            else "mps" if torch.backends.mps.is_available() else "cpu"
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
-
-        logging.info(f"Loading pipeline on device: {device}")
+        debug_msg_device = f"Loading pipeline on device: {device}"
+        logging.info(debug_msg_device)
 
         # defining the pipeline objects
         self.ocr = pipeline(
@@ -144,8 +145,7 @@ class RTCVariationalPipeline:
         # for when string ends with with the delimiter
         if split_rows[-1] == "":
             split_rows = split_rows[:-1]
-        recovered_splits = [split + split_key for split in split_rows]
-        return recovered_splits
+        return [split + split_key for split in split_rows]
 
     def check_dropout(self):
         """
@@ -158,17 +158,20 @@ class RTCVariationalPipeline:
         for model_key, pl in self.pipeline_map.items():
             # turn on dropout for this model
             set_dropout(model=pl.model, dropout_flag=True)
-            logger.debug(f"Model key: {model_key}")
+            debug_msg_key = f"Model key: {model_key}"
+            logger.debug(debug_msg_key)
             dropout_count = count_dropout(pipe=pl, dropout_flag=True)
-            logger.debug(
+            debug_msg_count = (
                 f"{dropout_count} dropout layers found in correct configuration."
             )
+            logger.debug(debug_msg_count)
             if dropout_count == 0:
-                raise ValueError(f"No dropout layers found in {model_key}")
+                error_message = f"No dropout layers found in {model_key}"
+                raise ValueError(error_message)
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
 
-    def recognise(self, inp) -> dict[str:str]:
+    def recognise(self, inp) -> dict[str, str]:
         """
         Function to perform OCR
 
@@ -182,7 +185,7 @@ class RTCVariationalPipeline:
         # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
         return {"outputs": inp}
 
-    def translate(self, text: str) -> dict[str : [torch.Tensor, str]]:
+    def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """
         Function to perform translation
 
@@ -224,12 +227,12 @@ class RTCVariationalPipeline:
             confidence_metrics
         )
         # add full output to the output dict
-        outputs = {"full_output": full_translation}
+        outputs: dict[str, Any] = {"full_output": full_translation}
         outputs.update(stacked_conf_metrics)
         # {full translation, sentence translations, logits, semantic embeddings}
         return outputs
 
-    def classify_topic(self, text: str) -> dict[str:str]:
+    def classify_topic(self, text: str) -> dict[str, str]:
         """
         Runs the classification model
 
@@ -240,8 +243,8 @@ class RTCVariationalPipeline:
         return {"scores": forward["scores"]}
 
     def stack_translator_sentence_metrics(
-        self, all_sentence_metrics: list[dict[str:Any]]
-    ) -> dict[str : list[Any]]:
+        self, all_sentence_metrics: list[dict[str, Any]]
+    ) -> dict[str, list[Any]]:
         """
         Stacks values from dictionary list into lists under a single key
 
@@ -256,15 +259,15 @@ class RTCVariationalPipeline:
             ]
         return stacked
 
-    def stack_variational_outputs(self, var_output):
+    def stack_variational_outputs(self, var_output: dict[str, list[Any]]):
         """
         Similar to above but this stacks variational output dictinaries into lists
         under a single key.
         """
         # Create new dict
-        new_var_dict = {}
+        new_var_dict: dict[str, Any] = {}
         # For each key create a new dict
-        for step in var_output.keys():
+        for step in var_output:
             new_var_dict[step] = {}
             # for each metric in a clean inference run (naive_ouputs)
             for metric in self.naive_outputs[step]:
@@ -333,7 +336,7 @@ class RTCVariationalPipeline:
 
     def translation_semantic_density(
         self, clean_output, var_output: dict
-    ) -> dict[str : Union[float, list[float]]]:
+    ) -> dict[str, float | list[Any]]:
         """
         Runs the semantic density measurement from https://arxiv.org/pdf/2405.13845.
 
@@ -353,8 +356,8 @@ class RTCVariationalPipeline:
         var_steps = var_output["translation"]
         n_sentences = len(clean_out)
         # define empty lists for the measurements
-        densities = [None] * n_sentences
-        sequence_lengths = [None] * n_sentences
+        densities: list[Any] = [None] * n_sentences
+        sequence_lengths: list[Any] = [None] * n_sentences
         # stack the variational runs according to their sentences, then loop and pass to
         # density calculation function
         for sentence_index, clean_sentence in enumerate(clean_out):
@@ -387,7 +390,7 @@ class RTCVariationalPipeline:
 
     def get_classification_confidence(
         self, var_output: dict, epsilon: float = 1e-15
-    ) -> dict[str : Union[float, torch.Tensor]]:
+    ) -> dict[str, float | torch.Tensor]:
         """
         _summary_
 
@@ -431,10 +434,10 @@ class RTCVariationalPipeline:
         )
         return var_output
 
-    def clean_inference(self, x: torch.Tensor) -> dict[str:dict]:
+    def clean_inference(self, x: torch.Tensor) -> dict[str, dict]:
         """Run the pipeline on an input x"""
         # define output dictionary
-        clean_output = {
+        clean_output: dict[str, Any] = {
             "recognition": {},
             "translation": {},
             "classification": {},
@@ -452,14 +455,14 @@ class RTCVariationalPipeline:
         )
         return clean_output
 
-    def variational_inference(self, x: torch.Tensor) -> dict[str:dict]:
+    def variational_inference(self, x: torch.Tensor) -> tuple[dict, dict]:
         """
         runs the variational inference with the pipeline
         """
         # ...first run clean inference
         clean_output = self.clean_inference(x)
         # define output dictionary
-        var_output = {
+        var_output: dict[str, Any] = {
             "recognition": [None] * self.n_variational_runs,
             "translation": [None] * self.n_variational_runs,
             "classification": [None] * self.n_variational_runs,
@@ -517,11 +520,10 @@ class CustomTranslationPipeline(TranslationPipeline):
         raw_out = copy.deepcopy(model_outputs)
         processed = super().postprocess(model_outputs, **postprocess_params)
 
-        new_output = {
+        return {
             "translation_text": processed[0]["translation_text"],
             "raw_outputs": raw_out,
         }
-        return new_output
 
     def _forward(self, model_inputs, **generate_kwargs):
         if self.framework == "pt":

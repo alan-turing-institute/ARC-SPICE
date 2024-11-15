@@ -9,5 +9,4 @@ def get_bleu_score(target, translation):
 def get_comet_model(model_path="Unbabel/wmt22-comet-da"):
     # Load the model checkpoint:
     comet_model_pth = download_model(model=model_path)
-    comet_model = load_from_checkpoint(comet_model_pth)
-    return comet_model
+    return load_from_checkpoint(comet_model_pth)

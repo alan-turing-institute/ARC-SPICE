@@ -1,5 +1,5 @@
 """
-    An example use of the transcription, translation and summarisation pipeline.
+An example use of the transcription, translation and summarisation pipeline.
 """
 
 import logging
@@ -42,13 +42,19 @@ def load_test_row():
 
 def get_test_row(train_data):
     row_iterator = iter(train_data)
-    for _ in range(0, randint(1, 25)):
+    for _ in range(randint(1, 25)):
         test_row = next(row_iterator)
 
     # debug row if needed
     return {
-        "source_text": "Le renard brun rapide a sauté par-dessus le chien paresseux. Le renard a sauté par-dessus le chien paresseux.",
-        "target_text": "The quick brown fox jumped over the lazy dog. The fox jumped over the lazy dog",
+        "source_text": (
+            "Le renard brun rapide a sauté par-dessus le chien paresseux."
+            "Le renard a sauté par-dessus le chien paresseux."
+        ),
+        "target_text": (
+            "The quick brown fox jumped over the lazy dog. The fox jumped"
+            " over the lazy dog"
+        ),
         "class_labels": [0, 1],
     }
     # Normal row
