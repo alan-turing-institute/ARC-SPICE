@@ -3,30 +3,18 @@ An example use of the transcription, translation and summarisation pipeline.
 """
 
 import logging
-import os
-import random
 from random import randint
 
-import numpy as np
 import torch
 from torch.nn.functional import binary_cross_entropy
 
 from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex
 from arc_spice.eval.classification_error import hamming_accuracy
 from arc_spice.eval.translation_error import get_comet_model
+from arc_spice.utils import seed_everything
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
-
-
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def load_test_row():
@@ -140,4 +128,5 @@ if __name__ == "__main__":
             "model": "claritylab/zero-shot-explicit-binary-bert",
         },
     }
+
     main(rtc_pars=rtc_pars)

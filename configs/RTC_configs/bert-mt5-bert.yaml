@@ -1,0 +1,11 @@
+OCR:
+  specific_task: "image-to-text"
+  model: "microsoft/trocr-base-handwritten"
+
+translator:
+  specific_task: "translation_fr_to_en"
+  model: "ybanas/autotrain-fr-en-translate-51410121895"
+
+classifier:
+  specific_task: "zero-shot-classification"
+  model: "claritylab/zero-shot-explicit-binary-bert"

@@ -1,0 +1,7 @@
+data_dir: "data"
+
+level: 1
+
+lang_pair:
+  source: "fr"
+  target: "en"
