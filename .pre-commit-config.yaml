@@ -35,6 +35,5 @@ repos:
       - id: mypy
         files: src
         args: [--ignore-missing-imports, --disable-error-code=var-annotated,  --disable-error-code=import-untyped]
-        # args: [--ignore-missing-imports, --disable-error-code=var-annotated]
         additional_dependencies:
           - pytest
