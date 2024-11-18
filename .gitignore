@@ -25,6 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.vscode
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -106,7 +107,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+.venv*
 env/
 venv/
 ENV/
@@ -157,10 +158,8 @@ Thumbs.db
 *~
 *.swp
 
+
+slurm_scripts/slurm_logs*
 # other
 temp
 .vscode
-
-# project related
-data/Taxi1500/raw
-temp

@@ -34,6 +34,6 @@ repos:
     hooks:
       - id: mypy
         files: src
-        args: []
+        args: [--ignore-missing-imports]
         additional_dependencies:
           - pytest
