@@ -260,7 +260,7 @@ class RTCVariationalPipeline:
         return stacked
 
     def stack_variational_outputs(
-        self, var_output: dict[str, list[Any]]
+        self, var_output: dict[str, list[dict]]
     ) -> dict[str, list]:
         """
         Similar to above but this stacks variational output dictinaries into lists
