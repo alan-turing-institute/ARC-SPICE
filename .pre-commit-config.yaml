@@ -34,6 +34,6 @@ repos:
     hooks:
       - id: mypy
         files: src
-        args: [--ignore-missing-imports, --disable-error-code=var-annotated]
+        args: [--ignore-missing-imports, --disable-error-code=var-annotated,  --disable-error-code=import-untyped]
         additional_dependencies:
           - pytest
