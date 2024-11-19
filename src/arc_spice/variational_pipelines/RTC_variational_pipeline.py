@@ -183,7 +183,7 @@ class RTCVariationalPipeline:
         """
         # Until the OCR data is available
         # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
-        return {"outputs": inp}
+        return {"outputs": inp["source_text"]}
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """

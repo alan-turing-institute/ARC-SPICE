@@ -4,6 +4,7 @@ import torch
 from datasets import load_dataset
 from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
+from torch.utils.data import DataLoader
 
 # For identifying where the adopted decisions begin
 ARTICLE_1_MARKERS = {"en": "\nArticle 1\n", "fr": "\nArticle premier\n"}
@@ -70,16 +71,17 @@ class PreProcesser:
         """
         source_text = data_row["text"][self.source_language]
         target_text = data_row["text"][self.target_language]
-        labels = data_row["labels"]
         return {
             "source_text": source_text,
             "target_text": target_text,
-            "class_labels": labels,
         }
 
 
 def load_multieurlex(
-    data_dir: str, level: int, lang_pair: dict[str, str]
+    data_dir: str,
+    level: int,
+    lang_pair: dict[str, str],
+    dataloader_kwargs=None,
 ) -> tuple[list, dict[str, int | list]]:
     """
     load the multieurlex dataset
@@ -88,6 +90,7 @@ def load_multieurlex(
         data_dir: root directory for the dataset class descriptors and concepts
         level: level of hierarchy/specicifity of the labels
         lang_pair: dictionary specifying the language pair.
+        return_loaders: Are pytorch Dataloaders being returned.
 
     Returns:
         List of datasets and a dictionary with some metadata information
@@ -130,6 +133,15 @@ def load_multieurlex(
         fn_kwargs={"lang_pair": lang_pair},
     )
     # return datasets and metadata
+    if dataloader_kwargs:
+        (
+            [
+                DataLoader(extracted_dataset["train"], **dataloader_kwargs),
+                DataLoader(extracted_dataset["test"], **dataloader_kwargs),
+                DataLoader(extracted_dataset["validation"], **dataloader_kwargs),
+            ],
+            meta_data,
+        )
     return [
         extracted_dataset["train"],
         extracted_dataset["test"],

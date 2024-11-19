@@ -24,7 +24,7 @@ def load_test_row():
     )
     multi_onehot = MultiHot(metadata_params["n_classes"])
     test_row = get_test_row(train)
-    class_labels = multi_onehot(test_row["class_labels"])
+    class_labels = multi_onehot(test_row["labels"])
     return test_row, class_labels, metadata_params
 
 
@@ -43,7 +43,7 @@ def get_test_row(train_data):
             "The quick brown fox jumped over the lazy dog. The fox jumped"
             " over the lazy dog"
         ),
-        "class_labels": [0, 1],
+        "labels": [0, 1],
     }
     # Normal row
     return test_row
@@ -104,9 +104,7 @@ def main(rtc_pars):
     rtc_variational_pipeline.check_dropout()
 
     # perform variational inference
-    clean_output, var_output = rtc_variational_pipeline.variational_inference(
-        test_row["source_text"]
-    )
+    clean_output, var_output = rtc_variational_pipeline.variational_inference(test_row)
 
     comet_model = get_comet_model()
 

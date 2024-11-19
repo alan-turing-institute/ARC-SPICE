@@ -5,3 +5,6 @@ level: 1
 lang_pair:
   source: "fr"
   target: "en"
+
+dataloader_kwargs:
+  batch_size: 1
