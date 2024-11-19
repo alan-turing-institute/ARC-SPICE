@@ -2,9 +2,10 @@ import json
 from typing import Any
 
 import torch
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, Image, load_dataset
 from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
+from trdg.generators import GeneratorFromStrings
 
 # For identifying where the adopted decisions begin
 ARTICLE_1_MARKERS = {
@@ -61,6 +62,22 @@ def extract_articles(
             for lang in languages
         }
     }
+
+
+def _make_ocr_data(text: str):
+    text = text.translate(str.maketrans({"\n": " "}))
+    text_split = text.split(" ")
+    text_split.remove("")
+    generator = GeneratorFromStrings(text_split, count=len(text_split))
+    feature = Image(decode=False)
+    return {
+        str(idx): {"image": feature.encode_example(gen[0]), "target": gen[1]}
+        for idx, gen in enumerate(generator)
+    }
+
+
+def make_ocr_data(item: LazyRow):
+    return {"ocr_data": _make_ocr_data(item["source_text"])}
 
 
 class TranslationPreProcesser:
@@ -174,6 +191,8 @@ def load_multieurlex(
             dataset_dict = dataset_dict.filter(
                 lambda x: all(x is not None for x in x["text"].values())
             )
+
+    dataset_dict = dataset_dict.map(make_ocr_data)
 
     # return datasets and metadata
     return dataset_dict, metadata

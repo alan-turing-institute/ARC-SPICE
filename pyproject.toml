@@ -42,7 +42,8 @@ dependencies = [
   "tensorboard",
   "scikit-learn",
   "soundfile",
-  "pillow=9.5
+  "pillow==9.5",
+  "trdg"
 ]
 
 [project.optional-dependencies]
