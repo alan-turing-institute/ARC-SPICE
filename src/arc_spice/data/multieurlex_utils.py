@@ -103,7 +103,7 @@ def load_multieurlex(
         class_descriptors = json.loads(descriptors_file.read())
         descriptors_file.close()
     # format level for the class descriptor dictionary, add these to a list
-    classes = class_concepts[level]
+    classes = class_concepts[f"level_{level}"]
     descriptors = []
     for class_id in classes:
         descriptors.append(class_descriptors[class_id])
