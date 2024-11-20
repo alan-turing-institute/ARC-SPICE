@@ -129,10 +129,8 @@ def load_multieurlex(
     # preprocess each split
     dataset = data.map(preprocesser, remove_columns=["text"])
     extracted_dataset = dataset.map(
-        extract_articles,
-        fn_kwargs={"lang_pair": lang_pair},
+        extract_articles, fn_kwargs={"lang_pair": lang_pair}
     )
-    extracted_dataset = extracted_dataset.remove_columns(["class_labels"])
     # return datasets and metadata
     if dataloader_kwargs:
         (

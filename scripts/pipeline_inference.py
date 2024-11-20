@@ -1,16 +1,3 @@
-"""
-Steps:
-    - Load data
-    - Load pipeline
-    - Run inference on all test data
-        - Save outputs of each model (on clean and pipeline output)
-        - Calculate error of each model (on clean and pipeline output)
-
-    - Save results
-        - File structure:
-            - output/check_callibration/pipeline_name/run_[X]/[OUTPUT FILES HERE]
-"""
-
 import argparse
 
 import torch
