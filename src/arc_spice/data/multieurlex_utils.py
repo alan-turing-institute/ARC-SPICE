@@ -35,7 +35,19 @@ def _extract_articles(text: str, article_1_marker: str):
     return text[start:]
 
 
-def extract_articles(item: LazyRow, languages: list[str]) -> dict[str, dict[str, str]]:
+def extract_articles(
+    item: LazyRow, languages: list[str]
+) -> dict[str, str] | dict[str, dict[str, str]]:
+    # single lang has different structure that isn't nested
+    if len(languages) == 1 and isinstance(item["text"], str):
+        return {
+            "text": _extract_articles(
+                text=item["text"],
+                article_1_marker=ARTICLE_1_MARKERS[languages[0]],
+            )
+        }
+
+    # else
     return {
         "text": {
             lang: _extract_articles(
