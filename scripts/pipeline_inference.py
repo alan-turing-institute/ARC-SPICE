@@ -93,6 +93,7 @@ def run_inference(
         "classification": {"mean_predicted_entropy": [], "hamming_accuracy": []},
     }
     for _, inp in enumerate(tqdm(dataloader)):
+        print(inp.keys())
         clean_out, var_out = pipeline.variational_inference(inp)
         results_dict = results_getter.get_results(
             clean_output=clean_out,
@@ -101,6 +102,7 @@ def run_inference(
             comet_model=comet_model,
             results_dict=results_dict,
         )
+        break
 
     return results_dict
 
@@ -109,21 +111,21 @@ def main(args):
     # initialise pipeline
     data_config = open_yaml_path(args.data_config)
     pipeline_config = open_yaml_path(args.pipeline_config)
-    (_, _, val_loader), meta_data = load_multieurlex(**data_config)
+    (_, test_loader, _), meta_data = load_multieurlex(**data_config)
     rtc_variational_pipeline = RTCVariationalPipeline(
         model_pars=pipeline_config, data_pars=meta_data
     )
     comet_model = get_comet_model()
     results_getter = ResultsGetter(meta_data["n_classes"])
 
-    val_results = run_inference(
-        dataloader=val_loader,
+    test_results = run_inference(
+        dataloader=test_loader,
         pipeline=rtc_variational_pipeline,
         results_getter=results_getter,
         comet_model=comet_model,
     )
 
-    print(val_results)
+    print(test_results)
 
 
 if __name__ == "__main__":

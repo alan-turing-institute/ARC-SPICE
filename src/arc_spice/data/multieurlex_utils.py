@@ -132,6 +132,7 @@ def load_multieurlex(
         extract_articles,
         fn_kwargs={"lang_pair": lang_pair},
     )
+    extracted_dataset = extracted_dataset.remove_columns(["class_labels"])
     # return datasets and metadata
     if dataloader_kwargs:
         (
