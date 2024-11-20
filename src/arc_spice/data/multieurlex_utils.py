@@ -115,6 +115,7 @@ def load_multieurlex(
     data_dir: str,
     level: int,
     languages: list[str],
+    drop_empty: bool = True,
 ) -> tuple[DatasetDict, dict[str, Any]]:
     """
     load the multieurlex dataset
@@ -148,16 +149,19 @@ def load_multieurlex(
         extract_articles, fn_kwargs={"languages": languages}
     )
 
+    if drop_empty:
+        dataset_dict = dataset_dict.filter(lambda x: x["text"] is not None)
+
     # return datasets and metadata
     return dataset_dict, metadata
 
 
 def load_multieurlex_for_translation(
-    data_dir: str, level: int, lang_pair: dict[str, str]
+    data_dir: str, level: int, lang_pair: dict[str, str], drop_empty: bool = True
 ) -> tuple[DatasetDict, dict[str, Any]]:
     langs = [lang_pair["source"], lang_pair["target"]]
     dataset_dict, meta_data = load_multieurlex(
-        data_dir=data_dir, level=level, languages=langs
+        data_dir=data_dir, level=level, languages=langs, drop_empty=drop_empty
     )
     # instantiate the preprocessor
     preprocesser = TranslationPreProcesser(lang_pair)
