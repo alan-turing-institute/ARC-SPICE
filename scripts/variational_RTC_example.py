@@ -3,37 +3,26 @@ An example use of the transcription, translation and summarisation pipeline.
 """
 
 import logging
-import os
-import random
 from random import randint
 
-import numpy as np
 import torch
 from torch.nn.functional import binary_cross_entropy
 
-from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex
+from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex_for_translation
 from arc_spice.eval.classification_error import hamming_accuracy
 from arc_spice.eval.translation_error import get_comet_model
+from arc_spice.utils import seed_everything
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
 
 
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-
-
 def load_test_row():
     lang_pair = {"source": "fr", "target": "en"}
-    (train, _, _), metadata_params = load_multieurlex(
+    dataset_dict, metadata_params = load_multieurlex_for_translation(
         data_dir="data", level=1, lang_pair=lang_pair
     )
+    train = dataset_dict["train"]
     multi_onehot = MultiHot(metadata_params["n_classes"])
     test_row = get_test_row(train)
     class_labels = multi_onehot(test_row["class_labels"])
@@ -41,10 +30,6 @@ def load_test_row():
 
 
 def get_test_row(train_data):
-    row_iterator = iter(train_data)
-    for _ in range(randint(1, 25)):
-        test_row = next(row_iterator)
-
     # debug row if needed
     return {
         "source_text": (
@@ -57,7 +42,10 @@ def get_test_row(train_data):
         ),
         "class_labels": [0, 1],
     }
-    # Normal row
+    ## Normal row
+    row_iterator = iter(train_data)
+    for _ in range(randint(1, 25)):
+        test_row = next(row_iterator)
     return test_row
 
 
