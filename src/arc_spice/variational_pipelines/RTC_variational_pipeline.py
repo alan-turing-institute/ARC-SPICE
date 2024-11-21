@@ -43,7 +43,7 @@ class RTCVariationalPipeline:
     def __init__(
         self,
         model_pars: dict[str, dict[str, str]],
-        data_pars,
+        data_pars: dict[str, Any],
         n_variational_runs=5,
         translation_batch_size=8,
     ) -> None:
@@ -224,7 +224,7 @@ class RTCVariationalPipeline:
         ]
         # group metrics under a single dict key
         stacked_conf_metrics = self.stack_translator_sentence_metrics(
-            confidence_metrics
+            all_sentence_metrics=confidence_metrics
         )
         # add full output to the output dict
         outputs: dict[str, Any] = {"full_output": full_translation}
