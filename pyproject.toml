@@ -82,7 +82,7 @@ port.exclude_lines = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.10"
+python_version = "3.10.4"
 show_error_codes = true
 warn_unreachable = true
 disallow_untyped_defs = false
