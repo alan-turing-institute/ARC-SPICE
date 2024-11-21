@@ -7,7 +7,11 @@ from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
 
 # For identifying where the adopted decisions begin
-ARTICLE_1_MARKERS = {"en": "\nArticle 1\n", "fr": "\nArticle premier\n"}
+ARTICLE_1_MARKERS = {
+    "en": "\nArticle 1\n",
+    "fr": "\nArticle premier\n",
+    "de": "\nArtikel 1\n",
+}
 
 
 # creates a multi-hot vector for classification loss
@@ -146,11 +150,17 @@ def load_multieurlex(
     )
 
     dataset_dict = dataset_dict.map(
-        extract_articles, fn_kwargs={"languages": languages}
+        extract_articles,
+        fn_kwargs={"languages": languages},
     )
 
     if drop_empty:
-        dataset_dict = dataset_dict.filter(lambda x: x["text"] is not None)
+        if len(languages) == 1:
+            dataset_dict = dataset_dict.filter(lambda x: x["text"] is not None)
+        else:
+            dataset_dict = dataset_dict.filter(
+                lambda x: all(x is not None for x in x["text"].values())
+            )
 
     # return datasets and metadata
     return dataset_dict, metadata
