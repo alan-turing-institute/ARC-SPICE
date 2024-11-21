@@ -73,7 +73,7 @@ def test_load_multieurlex_en():
         assert len(dataset_dict["validation"]) == 4  # 5 items, 1 is empty so dropped
         assert len(dataset_dict["test"]) == 4  # 5 items, 1 is empty so dropped
         assert dataset_dict["train"]["text"] == [
-            f"{multieurlex_utils.ARTICLE_1_MARKERS["en"]} Some text after the marker {i}"  # noqa: E501
+            f"{multieurlex_utils.ARTICLE_1_MARKERS['en']} Some text after the marker {i}"  # noqa: E501
             for i in [1, 2, 4, 5]  # 3 dropped
         ]
 
