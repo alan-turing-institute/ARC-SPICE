@@ -10,7 +10,8 @@ authors = [
 ]
 description = "Sample Level, Pipeline Introduced Cumulative Errors (SPICE). Investigating methods for generalisable measurement of cumulative errors in multi-model (and multi-modal) ML pipelines."
 readme = "README.md"
-requires-python = "==3.10.15"
+requires-python = "==3.10.4"
+requires-pip = "==24.0"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
