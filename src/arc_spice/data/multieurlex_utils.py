@@ -65,9 +65,7 @@ def extract_articles(
 
 
 def _make_ocr_data(text: str):
-    text = text.translate(str.maketrans({"\n": " "}))
-    text_split = text.split(" ")
-    text_split.remove("")
+    text_split = text.split()
     generator = GeneratorFromStrings(text_split, count=len(text_split))
     feature = Image(decode=False)
     return {

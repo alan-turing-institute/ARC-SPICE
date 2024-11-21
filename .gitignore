@@ -170,3 +170,6 @@ tests/testdata/*/*/cache*
 
 # tensorboard logs
 logs/
+
+# flowcharts
+flowcharts
