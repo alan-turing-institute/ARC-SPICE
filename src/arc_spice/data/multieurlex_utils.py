@@ -136,6 +136,7 @@ def load_multieurlex(
     languages: list[str],
     drop_empty: bool = True,
     split: str | None = None,
+    load_ocr_data: bool = False,
 ) -> tuple[DatasetDict, dict[str, Any]]:
     """
     load the multieurlex dataset
@@ -190,7 +191,8 @@ def load_multieurlex(
                 lambda x: all(x is not None for x in x["text"].values())
             )
 
-    dataset_dict = dataset_dict.map(make_ocr_data)
+    if load_ocr_data:
+        dataset_dict = dataset_dict.map(make_ocr_data)
 
     # return datasets and metadata
     return dataset_dict, metadata
