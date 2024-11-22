@@ -3,62 +3,37 @@ An example use of the transcription, translation and summarisation pipeline.
 """
 
 import logging
-import os
-import random
 from random import randint
 
-import numpy as np
 import torch
 from torch.nn.functional import binary_cross_entropy
 
-from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex
+from arc_spice.data.multieurlex_utils import MultiHot, load_multieurlex_for_translation
 from arc_spice.eval.classification_error import hamming_accuracy
 from arc_spice.eval.translation_error import get_comet_model
+from arc_spice.utils import seed_everything
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
 
 
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
+def get_random_test_row(train_data):
+    row_iterator = iter(train_data)
+    for _ in range(randint(1, 25)):
+        test_row = next(row_iterator)
+    return test_row
 
 
 def load_test_row():
     lang_pair = {"source": "fr", "target": "en"}
-    (train, _, _), metadata_params = load_multieurlex(
+    dataset_dict, metadata_params = load_multieurlex_for_translation(
         data_dir="data", level=1, lang_pair=lang_pair
     )
+    train = dataset_dict["train"]
     multi_onehot = MultiHot(metadata_params["n_classes"])
-    test_row = get_test_row(train)
-    class_labels = multi_onehot(test_row["class_labels"])
+    test_row = get_random_test_row(train)
+    class_labels = multi_onehot(test_row["labels"])
     return test_row, class_labels, metadata_params
-
-
-def get_test_row(train_data):
-    row_iterator = iter(train_data)
-    for _ in range(randint(1, 25)):
-        test_row = next(row_iterator)
-
-    # debug row if needed
-    return {
-        "source_text": (
-            "Le renard brun rapide a sauté par-dessus le chien paresseux."
-            "Le renard a sauté par-dessus le chien paresseux."
-        ),
-        "target_text": (
-            "The quick brown fox jumped over the lazy dog. The fox jumped"
-            " over the lazy dog"
-        ),
-        "class_labels": [0, 1],
-    }
-    # Normal row
-    return test_row
 
 
 def print_results(clean_output, var_output, class_labels, test_row, comet_model):

@@ -1,12 +1,17 @@
 import json
+from typing import Any
 
 import torch
-from datasets import load_dataset
+from datasets import DatasetDict, load_dataset
 from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
 
 # For identifying where the adopted decisions begin
-ARTICLE_1_MARKERS = {"en": "\nArticle 1\n", "fr": "\nArticle premier\n"}
+ARTICLE_1_MARKERS = {
+    "en": "\nArticle 1\n",
+    "fr": "\nArticle premier\n",
+    "de": "\nArtikel 1\n",
+}
 
 
 # creates a multi-hot vector for classification loss
@@ -34,23 +39,32 @@ def _extract_articles(text: str, article_1_marker: str):
     return text[start:]
 
 
-def extract_articles(item: LazyRow, lang_pair: dict[str, str]):
-    lang_source = lang_pair["source"]
-    lang_target = lang_pair["target"]
+def extract_articles(
+    item: LazyRow, languages: list[str]
+) -> dict[str, str] | dict[str, dict[str, str]]:
+    # single lang has different structure that isn't nested
+    if len(languages) == 1 and isinstance(item["text"], str):
+        return {
+            "text": _extract_articles(
+                text=item["text"],
+                article_1_marker=ARTICLE_1_MARKERS[languages[0]],
+            )
+        }
+
+    # else
     return {
-        "source_text": _extract_articles(
-            text=item["source_text"],
-            article_1_marker=ARTICLE_1_MARKERS[lang_source],
-        ),
-        "target_text": _extract_articles(
-            text=item["target_text"],
-            article_1_marker=ARTICLE_1_MARKERS[lang_target],
-        ),
+        "text": {
+            lang: _extract_articles(
+                text=item["text"][lang],
+                article_1_marker=ARTICLE_1_MARKERS[lang],
+            )
+            for lang in languages
+        }
     }
 
 
-class PreProcesser:
-    """Function to preprocess the data, for the purposes of removing unused languages"""
+class TranslationPreProcesser:
+    """Prepares the data for the translation task"""
 
     def __init__(self, language_pair: dict[str, str]) -> None:
         self.source_language = language_pair["source"]
@@ -70,28 +84,13 @@ class PreProcesser:
         """
         source_text = data_row["text"][self.source_language]
         target_text = data_row["text"][self.target_language]
-        labels = data_row["labels"]
         return {
             "source_text": source_text,
             "target_text": target_text,
-            "class_labels": labels,
         }
 
 
-def load_multieurlex(
-    data_dir: str, level: int, lang_pair: dict[str, str]
-) -> tuple[list, dict[str, int | list]]:
-    """
-    load the multieurlex dataset
-
-    Args:
-        data_dir: root directory for the dataset class descriptors and concepts
-        level: level of hierarchy/specicifity of the labels
-        lang_pair: dictionary specifying the language pair.
-
-    Returns:
-        List of datasets and a dictionary with some metadata information
-    """
+def load_mutlieurlex_metadata(data_dir: str, level: int) -> dict[str, Any]:
     assert level in [1, 2, 3], "there are 3 levels of hierarchy: 1,2,3."
     with open(f"{data_dir}/MultiEURLEX/data/eurovoc_concepts.json") as concepts_file:
         class_concepts = json.loads(concepts_file.read())
@@ -103,35 +102,78 @@ def load_multieurlex(
         class_descriptors = json.loads(descriptors_file.read())
         descriptors_file.close()
     # format level for the class descriptor dictionary, add these to a list
-    classes = class_concepts[level]
+    classes = class_concepts[f"level_{level}"]
     descriptors = []
     for class_id in classes:
         descriptors.append(class_descriptors[class_id])
 
-    # load the dataset with huggingface API
-    data = load_dataset(
-        "multi_eurlex",
-        "all_languages",
-        label_level=f"level_{level}",
-        trust_remote_code=True,
-    )
     # define metadata
-    meta_data = {
+    return {
         "n_classes": len(classes),
         "class_labels": classes,
         "class_descriptors": descriptors,
     }
-    # instantiate the preprocessor
-    preprocesser = PreProcesser(lang_pair)
-    # preprocess each split
-    dataset = data.map(preprocesser, remove_columns=["text"])
-    extracted_dataset = dataset.map(
-        extract_articles,
-        fn_kwargs={"lang_pair": lang_pair},
+
+
+def load_multieurlex(
+    data_dir: str,
+    level: int,
+    languages: list[str],
+    drop_empty: bool = True,
+) -> tuple[DatasetDict, dict[str, Any]]:
+    """
+    load the multieurlex dataset
+
+    Args:
+        data_dir: root directory for the dataset class descriptors and concepts
+        level: level of hierarchy/specicifity of the labels
+        languages: a list of iso codes for languages to be used
+
+    Returns:
+        List of datasets and a dictionary with some metadata information
+    """
+    metadata = load_mutlieurlex_metadata(data_dir=data_dir, level=level)
+
+    # load the dataset with huggingface API
+    if isinstance(languages, list):
+        if len(languages) == 0:
+            msg = "languages list cannot be empty"
+            raise Exception(msg)
+
+        load_langs = languages[0] if len(languages) == 1 else "all_languages"
+
+    dataset_dict = load_dataset(
+        "multi_eurlex",
+        load_langs,
+        label_level=f"level_{level}",
+        trust_remote_code=True,
     )
+
+    dataset_dict = dataset_dict.map(
+        extract_articles,
+        fn_kwargs={"languages": languages},
+    )
+
+    if drop_empty:
+        if len(languages) == 1:
+            dataset_dict = dataset_dict.filter(lambda x: x["text"] is not None)
+        else:
+            dataset_dict = dataset_dict.filter(
+                lambda x: all(x is not None for x in x["text"].values())
+            )
+
     # return datasets and metadata
-    return [
-        extracted_dataset["train"],
-        extracted_dataset["test"],
-        extracted_dataset["validation"],
-    ], meta_data
+    return dataset_dict, metadata
+
+
+def load_multieurlex_for_translation(
+    data_dir: str, level: int, lang_pair: dict[str, str], drop_empty: bool = True
+) -> tuple[DatasetDict, dict[str, Any]]:
+    langs = [lang_pair["source"], lang_pair["target"]]
+    dataset_dict, meta_data = load_multieurlex(
+        data_dir=data_dir, level=level, languages=langs, drop_empty=drop_empty
+    )
+    # instantiate the preprocessor
+    preprocesser = TranslationPreProcesser(lang_pair)
+    # preprocess each split
+    return dataset_dict.map(preprocesser, remove_columns=["text"]), meta_data

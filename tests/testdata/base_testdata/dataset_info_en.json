@@ -1,0 +1,68 @@
+{
+  "builder_name": "multi_eurlex_test_en",
+  "config_name": "en",
+  "dataset_name": "multi_eurlex_test_en",
+  "features": {
+    "celex_id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "labels": {
+      "feature": {
+        "names": [
+          "100149",
+          "100160",
+          "100148",
+          "100147",
+          "100152",
+          "100143",
+          "100156",
+          "100158",
+          "100154",
+          "100153",
+          "100142",
+          "100145",
+          "100150",
+          "100162",
+          "100159",
+          "100144",
+          "100151",
+          "100157",
+          "100161",
+          "100146",
+          "100155"
+        ],
+        "_type": "ClassLabel"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_examples": 5,
+      "dataset_name": "multi_eurlex_test_en"
+    },
+    "test": {
+      "name": "test",
+      "num_examples": 5,
+      "dataset_name": "multi_eurlex_test_en"
+    },
+    "validation": {
+      "name": "validation",
+      "num_examples": 5,
+      "dataset_name": "multi_eurlex_test_en"
+    }
+  },
+  "version": {
+    "version_str": "1.0.0",
+    "description": "",
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  }
+}

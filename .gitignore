@@ -164,3 +164,6 @@ slurm_scripts/slurm_logs*
 temp
 .vscode
 local_notebooks
+
+# test caches
+tests/testdata/*/*/cache*
