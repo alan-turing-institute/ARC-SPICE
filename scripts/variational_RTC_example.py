@@ -17,6 +17,13 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 )
 
 
+def get_random_test_row(train_data):
+    row_iterator = iter(train_data)
+    for _ in range(randint(1, 25)):
+        test_row = next(row_iterator)
+    return test_row
+
+
 def load_test_row():
     lang_pair = {"source": "fr", "target": "en"}
     dataset_dict, metadata_params = load_multieurlex_for_translation(
@@ -24,29 +31,9 @@ def load_test_row():
     )
     train = dataset_dict["train"]
     multi_onehot = MultiHot(metadata_params["n_classes"])
-    test_row = get_test_row(train)
-    class_labels = multi_onehot(test_row["class_labels"])
+    test_row = get_random_test_row(train)
+    class_labels = multi_onehot(test_row["labels"])
     return test_row, class_labels, metadata_params
-
-
-def get_test_row(train_data):
-    # debug row if needed
-    return {
-        "source_text": (
-            "Le renard brun rapide a sauté par-dessus le chien paresseux."
-            "Le renard a sauté par-dessus le chien paresseux."
-        ),
-        "target_text": (
-            "The quick brown fox jumped over the lazy dog. The fox jumped"
-            " over the lazy dog"
-        ),
-        "class_labels": [0, 1],
-    }
-    ## Normal row
-    row_iterator = iter(train_data)
-    for _ in range(randint(1, 25)):
-        test_row = next(row_iterator)
-    return test_row
 
 
 def print_results(clean_output, var_output, class_labels, test_row, comet_model):
