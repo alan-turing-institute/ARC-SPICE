@@ -337,8 +337,8 @@ class RTCVariationalPipeline:
         return semantic_density.item(), sequence_length
 
     def translation_semantic_density(
-        self, clean_output, var_output: dict
-    ) -> dict[str, float | list[Any]]:
+        self, clean_output: dict, var_output: dict, **kwargs
+    ) -> dict[str, float | Any]:
         """
         Runs the semantic density measurement from https://arxiv.org/pdf/2405.13845.
 
@@ -391,7 +391,7 @@ class RTCVariationalPipeline:
         return var_output
 
     def get_classification_confidence(
-        self, var_output: dict, epsilon: float = 1e-15
+        self, var_output: dict, epsilon: float = 1e-15, **kwargs
     ) -> dict[str, float | torch.Tensor]:
         """
         _summary_

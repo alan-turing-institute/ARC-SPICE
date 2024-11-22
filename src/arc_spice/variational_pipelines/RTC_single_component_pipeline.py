@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 import torch
@@ -53,7 +54,6 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
                 device=device,
             )
             self.model = self.translator.model
-            self.confidence_func = self.translation_semantic_density
             self._init_semantic_density()
 
         elif model_key == "classifier":
@@ -89,10 +89,15 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             ],
         }
 
-        self.func_map = {
+        self.foward_func_map: dict[str, Callable] = {
             "recognition": self.recognise,
             "translation": self.translate,
             "classification": self.classify_topic,
+        }
+        self.confidence_func_map: dict[str, Callable] = {
+            "recognition": self.recognise,
+            "translation": self.translation_semantic_density,
+            "classification": self.get_classification_confidence,
         }
 
         self.n_variational_runs = n_variational_runs
@@ -102,7 +107,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
         clean_output: dict[str, Any] = {
             self.step_name: {},
         }
-        clean_output[self.step_name] = self.func_map[self.step_name](inp)
+        clean_output[self.step_name] = self.foward_func_map[self.step_name](inp)
         return clean_output
 
     def variational_inference(self, x):
@@ -116,12 +121,13 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
         torch.nn.functional.dropout = dropout_on
         # do n runs of the inference
         for run_idx in range(self.n_variational_runs):
-            var_output[self.step_name][run_idx] = self.func_map[self.step_name](inp)
+            var_output[self.step_name][run_idx] = self.foward_func_map[self.step_name](
+                inp
+            )
         # turn off dropout for this model
         set_dropout(model=self.model, dropout_flag=False)
         torch.nn.functional.dropout = dropout_off
         var_output = self.stack_variational_outputs(var_output)
-        var_output = self.confidence_func(
-            clean_output=clean_output, var_output=var_output
-        )
+        conf_args = {"clean_output": clean_output, "var_output": var_output}
+        var_output = self.confidence_func_map[self.step_name](**conf_args)
         return clean_output, var_output
