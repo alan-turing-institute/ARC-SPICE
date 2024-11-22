@@ -122,6 +122,5 @@ def run_inference(
             test_row=inp,
             results_dict=results_dict,
         )
-        break
 
     return results_dict

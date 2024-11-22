@@ -28,8 +28,6 @@ def main(args):
         results_getter=results_getter,
     )
 
-    print(json.dumps(test_results, indent=2))
-
     data_name = args.data_config.split("/")[-1].split(".")[0]
     pipeline_name = args.pipeline_config.split("/")[-1].split(".")[0]
     save_loc = f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}"
