@@ -8,10 +8,6 @@ from datasets.formatting.formatting import LazyRow
 
 from arc_spice.data import multieurlex_utils
 
-# def extract_articles(
-#     item: LazyRow, languages: list[str]
-# ) -> dict[str, str] | dict[str, dict[str, str]]:
-
 TEST_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
