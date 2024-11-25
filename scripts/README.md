@@ -12,7 +12,7 @@ Sample config for training stored at [../config/topic_classifier_training.yaml](
 
 run with (from project root):
 ```bash
-python scripts/train_topic_classifier.py -c configs/topic_classifier_training.yml
+python scripts/train_topic_classifier.py --config config/topic_classifier_training.yml
 ```
 
 ## eval_topic_classifier.py
