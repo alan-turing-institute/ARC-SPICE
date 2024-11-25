@@ -16,13 +16,23 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 
 
 class RTCSingleComponentPipeline(RTCVariationalPipeline):
+    """
+    Single component version of the variational pipeline, which inherits methods from
+    the main `RTCVariationalPipeline` class, without initialising models by overwriting
+    the `.__init__` method, the `.clean_inference` and `.variational_inference`
+    methods are also overwitten accordingly.
+
+    Args:
+        RTCVariationalPipeline: Inherits from the variational pipeline
+    """
+
     def __init__(
         self,
         model_pars: dict[str, dict[str, str]],
         model_key: str,
         data_pars: dict[str, Any],
-        n_variational_runs=5,
-        translation_batch_size=8,
+        n_variational_runs: int = 5,
+        translation_batch_size: int = 8,
     ) -> None:
         device = (
             "cuda"
@@ -31,7 +41,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             if torch.backends.mps.is_available()
             else "cpu"
         )
-        # define methods and objects that are needed and nothing else
+        # define objects that are needed and nothing else
         if model_key == "OCR":
             self.step_name = "recognition"
             self.input_key = "ocr_data"
@@ -54,6 +64,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
                 device=device,
             )
             self.model = self.translator.model
+            # need to initialise the NLI models in this case
             self._init_semantic_density()
 
         elif model_key == "classifier":
@@ -71,10 +82,13 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
                 class_names_dict["en"]
                 for class_names_dict in data_pars["class_descriptors"]
             ]
+        # if an incorrect model is not selected
         else:
             error_msg = "Please specify a valid pipeline component"
             raise ValueError(error_msg)
 
+        # naive outputs can remain the same, though only the appropriate outputs will
+        # be outputted
         self.naive_outputs = {
             "recognition": [
                 "outputs",
@@ -89,6 +103,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             ],
         }
 
+        # maps to ensure the correct foward method is used in inference.
         self.foward_func_map: dict[str, Callable] = {
             "recognition": self.recognise,
             "translation": self.translate,
@@ -102,6 +117,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
 
         self.n_variational_runs = n_variational_runs
 
+    # clean inference
     def clean_inference(self, x):
         inp = x[self.input_key]
         clean_output: dict[str, Any] = {
