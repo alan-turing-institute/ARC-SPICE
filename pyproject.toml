@@ -40,7 +40,7 @@ dependencies = [
   "unbabel-comet",
   "accelerate",
   "tensorboard",
-  "sklearn"
+  "scikit-learn"
 ]
 
 [project.optional-dependencies]
