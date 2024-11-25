@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-from arc_spice.data.multieurlex_utils import load_multieurlex
+from arc_spice.data.multieurlex_utils import load_multieurlex_for_translation
 from arc_spice.eval.inference_utils import ResultsGetter, run_inference
 from arc_spice.utils import open_yaml_path
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
@@ -16,7 +16,8 @@ def main(args):
     # initialise pipeline
     data_config = open_yaml_path(args.data_config)
     pipeline_config = open_yaml_path(args.pipeline_config)
-    (_, test_loader, _), meta_data = load_multieurlex(**data_config)
+    data_sets, meta_data = load_multieurlex_for_translation(**data_config)
+    test_loader = data_sets["test"]
     rtc_variational_pipeline = RTCVariationalPipeline(
         model_pars=pipeline_config, data_pars=meta_data
     )
