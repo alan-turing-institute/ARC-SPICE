@@ -37,7 +37,10 @@ dependencies = [
   "torch",
   "torcheval",
   "pillow",
-  "unbabel-comet"
+  "unbabel-comet",
+  "accelerate",
+  "tensorboard",
+  "sklearn"
 ]
 
 [project.optional-dependencies]
@@ -45,6 +48,7 @@ dev = [
   "pytest >=6",
   "pytest-cov >=3",
   "pre-commit",
+  "mypy",
 ]
 
 [project.urls]
