@@ -15,3 +15,4 @@ training_args:
   load_best_model_at_end: True
   eval_on_start: True
   report_to: "tensorboard"
+  seed: 42
