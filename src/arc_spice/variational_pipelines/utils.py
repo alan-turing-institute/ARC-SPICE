@@ -206,6 +206,8 @@ class RTCPipelineBase:
         """
         logger.debug("\n\n------------------ Testing Dropout --------------------")
         for model_key, pl in self.pipeline_map.items():
+            if not isinstance(pl, Pipeline):
+                continue
             # turn on dropout for this model
             set_dropout(model=pl.model, dropout_flag=True)
             debug_msg_key = f"Model key: {model_key}"
