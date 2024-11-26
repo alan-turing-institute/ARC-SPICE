@@ -1,0 +1,18 @@
+data_root: /path/to/data
+
+training_args:
+  output_dir: my_topic_classifier
+  learning_rate: 0.00002
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 32
+  num_train_epochs: 2
+  weight_decay: 0.01
+  eval_strategy: "steps"
+  save_strategy: "steps"
+  eval_steps: 500
+  save_steps: 500
+  logging_steps: 50
+  load_best_model_at_end: True
+  eval_on_start: True
+  report_to: "tensorboard"
+  seed: 42

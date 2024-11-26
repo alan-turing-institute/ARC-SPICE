@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 import torch
-from datasets import DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset
 from datasets.formatting.formatting import LazyRow
 from torch.nn.functional import one_hot
 
@@ -120,6 +120,7 @@ def load_multieurlex(
     level: int,
     languages: list[str],
     drop_empty: bool = True,
+    split: str | None = None,
 ) -> tuple[DatasetDict, dict[str, Any]]:
     """
     load the multieurlex dataset
@@ -130,7 +131,7 @@ def load_multieurlex(
         languages: a list of iso codes for languages to be used
 
     Returns:
-        List of datasets and a dictionary with some metadata information
+        dataset dict and metdata.
     """
     metadata = load_mutlieurlex_metadata(data_dir=data_dir, level=level)
 
@@ -147,7 +148,19 @@ def load_multieurlex(
         load_langs,
         label_level=f"level_{level}",
         trust_remote_code=True,
+        split=split,
     )
+    # ensure we always return dataset dict even if only single split
+    if split is not None:
+        if not isinstance(dataset_dict, Dataset):
+            msg = (
+                "Error. load_dataset should return a Dataset object if split specified"
+            )
+            raise ValueError(msg)
+
+        tmp = DatasetDict()
+        tmp[split] = dataset_dict
+        dataset_dict = tmp
 
     dataset_dict = dataset_dict.map(
         extract_articles,
