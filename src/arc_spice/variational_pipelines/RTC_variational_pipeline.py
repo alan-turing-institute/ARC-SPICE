@@ -65,6 +65,7 @@ class RTCVariationalPipeline(RTCPipelineBase):
         ]
 
         self._init_semantic_density()
+        self._init_pipeline_map()
 
     def clean_inference(self, x: torch.Tensor) -> dict[str, dict]:
         """Run the pipeline on an input x"""

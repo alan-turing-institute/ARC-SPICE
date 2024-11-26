@@ -1,11 +1,6 @@
 import torch
 
 
-def hamming_accuracy(preds: torch.Tensor, class_labels: torch.Tensor) -> torch.Tensor:
-    # Inverse of the hamming loss (the fraction of labels incorrectly predicted)
-    return torch.mean((preds.float() == class_labels.float()).float()).item()
-
-
 def aggregate_score(probs: torch.Tensor) -> torch.Tensor:
     # average 'distance' from the predicted class
     preds = torch.round(probs).float()

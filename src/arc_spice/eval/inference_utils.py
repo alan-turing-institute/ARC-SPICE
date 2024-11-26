@@ -1,11 +1,11 @@
 from collections.abc import Callable
 
 import torch
+from sklearn.metrics import hamming_loss, zero_one_loss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_utils import MultiHot
-from arc_spice.eval.classification_error import hamming_accuracy
 from arc_spice.eval.translation_error import get_comet_model
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     RTCSingleComponentPipeline,
@@ -17,13 +17,13 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 
 class ResultsGetter:
     def __init__(self, n_classes):
-        self.multi_hot = MultiHot(n_classes)
         self.func_map: dict[str, Callable] = {
             "recognition": self.recognition_results,
             "translation": self.translation_results,
             "classification": self.classification_results,
         }
         self.comet_model = get_comet_model()
+        self.multihot = MultiHot(n_classes)
 
     def get_results(
         self,
@@ -88,11 +88,12 @@ class ResultsGetter:
     def classification_results(self, test_row, _, var_output, results_dict):
         # ### CLASSIFICATION ###
         mean_scores = var_output["classification"]["mean_scores"]
-        preds = torch.round(mean_scores)
-        hamming_acc = hamming_accuracy(
-            preds=preds, class_labels=self.multi_hot(test_row["labels"])
-        )
+        preds = torch.round(mean_scores).tolist()
+        labels = self.multihot(test_row["labels"])
+        hamming_acc = hamming_loss(y_pred=preds, y_true=labels)
+        zero_one_acc = zero_one_loss(y_pred=preds, y_true=labels)
         results_dict["classification"]["hamming_accuracy"].append(hamming_acc)
+        results_dict["classification"]["zero_one_accuracy"].append(zero_one_acc)
         results_dict["classification"]["mean_predicted_entropy"].append(
             torch.mean(var_output["classification"]["predicted_entropy"]).item()
         )
@@ -109,7 +110,11 @@ def run_inference(
         # Placeholder
         "ocr": {"confidence": [], "accuracy": []},
         "translation": {"weighted_semantic_density": [], "comet_score": []},
-        "classification": {"mean_predicted_entropy": [], "hamming_accuracy": []},
+        "classification": {
+            "mean_predicted_entropy": [],
+            "hamming_accuracy": [],
+            "zero_one_accuracy": [],
+        },
     }
     if isinstance(pipeline, RTCSingleComponentPipeline):
         results_dict = {pipeline.step_name: results_dict[pipeline.step_name]}

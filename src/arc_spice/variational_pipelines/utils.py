@@ -151,12 +151,19 @@ class RTCPipelineBase:
         self.classifier = DummyPipeline("classifier")
 
         # map pipeline names to their pipeline counterparts
+
+        self.topic_labels = None  # This should be defined in subclass if needed
+        self._init_pipeline_map()
+
+    def _init_pipeline_map(self):
+        """
+        These need to redefined when overwritten in subclass
+        """
         self.pipeline_map = {
             "recognition": self.ocr,
             "translation": self.translator,
             "classification": self.classifier,
         }
-        self.topic_labels = None  # This should be defined in subclass if needed
 
     def _init_semantic_density(self):
         """
