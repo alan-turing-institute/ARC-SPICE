@@ -1,8 +1,10 @@
 import copy
+import io
 import logging
 from typing import Any
 
 import torch
+from PIL import Image
 from torch.nn.functional import softmax
 from transformers import (
     AutoModelForSequenceClassification,
@@ -170,6 +172,43 @@ class RTCVariationalPipeline:
                 raise ValueError(error_message)
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
+
+    @staticmethod
+    def preprocess_ocr_data(data_dict: dict):
+        """Preprocess the OCR data, turning the images back from bytes to PIL images,
+        and removing None entries.
+
+        Args:
+            data_dict: ocr data dictionary, split up by word for each input, with
+                        structure,
+                            {
+                                idx (string): {
+                                    'image': {
+                                        'bytes': image (bytes),
+                                        'target': target word (str)
+                                    }
+                                }
+                            }
+                        some of the data will be Nonetype from a quirk of huggingface
+
+        Returns:
+            processed_data_dict: ocr data dictionary with no Nonetype and images as PIL
+                                    images, with structure,
+                            {
+                                idx (int): {
+                                    'image': image (PIL image),
+                                    'target': target word (str)
+                                }
+                            }
+        """
+        return {
+            int(key): {
+                "image": Image.open(io.BytesIO(val["image"]["bytes"])),
+                "target": val["target"],
+            }
+            for key, val in data_dict.items()
+            if val is not None
+        }
 
     def recognise(self, inp) -> dict[str, str]:
         """
