@@ -84,7 +84,10 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             ]
         # if an incorrect model is not selected
         else:
-            error_msg = "Please specify a valid pipeline component"
+            error_msg = (
+                f"model_key should be one of 'ocr', 'translator', or 'classifier',"
+                f" got {model_key}"
+            )
             raise ValueError(error_msg)
 
         # naive outputs can remain the same, though only the appropriate outputs will
