@@ -122,6 +122,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
 
     # clean inference
     def clean_inference(self, x):
+        # run only the model that is defined
         inp = x[self.input_key]
         clean_output: dict[str, Any] = {
             self.step_name: {},
@@ -130,11 +131,13 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
         return clean_output
 
     def variational_inference(self, x):
+        # run only model that is defined in clean output
         clean_output = self.clean_inference(x)
         inp = x[self.input_key]
         var_output: dict[str, Any] = {
             self.step_name: {},
         }
+        # variational stage is the same as the full pipeline model, with different input
         # turn on dropout for this model
         set_dropout(model=self.model, dropout_flag=True)
         torch.nn.functional.dropout = dropout_on
@@ -147,6 +150,9 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
         set_dropout(model=self.model, dropout_flag=False)
         torch.nn.functional.dropout = dropout_off
         var_output = self.stack_variational_outputs(var_output)
+        # For confidence function we need to pass both outputs in all cases
+        # This allows the abstraction to self.confidence_func_map[self.step_name]
         conf_args = {"clean_output": clean_output, "var_output": var_output}
         var_output = self.confidence_func_map[self.step_name](**conf_args)
+        # return both as in base function method
         return clean_output, var_output
