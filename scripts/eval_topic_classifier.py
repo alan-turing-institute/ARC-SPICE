@@ -22,8 +22,14 @@ def main(
     model = DistilBertForSequenceClassification.from_pretrained(ckpt_path)
     tokenizer = DistilBertTokenizer.from_pretrained(ckpt_path)
 
+    if dataset_name not in ["validation", "test"]:
+        msg = (
+            f"dataset_name should be one of 'validation' or 'test', got {dataset_name}"
+        )
+        raise ValueError(msg)
+
     dataset_dict, metadata = load_multieurlex(
-        data_dir=data_root, level=1, languages=["en"]
+        data_dir=data_root, level=1, languages=["en"], split=dataset_name
     )
     id2label = dict(enumerate(metadata["class_labels"]))
 
