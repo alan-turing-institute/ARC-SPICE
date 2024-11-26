@@ -10,6 +10,7 @@ from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
+from arc_spice.variational_pipelines.utils import DummyPipeline
 
 CONFIG_ROOT = f"{os.path.dirname(os.path.abspath(__file__))}/../config/"
 
@@ -34,11 +35,6 @@ def dummy_metadata():
             {"en": f"class_{i}", "fr": f"classe_{i}"} for i in list(range(n_classes))
         ],
     }
-
-
-class DummyPipeline:
-    def __init__(self, model_name):
-        self.model = model_name
 
 
 def test_pipeline_inputs(dummy_data, dummy_metadata):

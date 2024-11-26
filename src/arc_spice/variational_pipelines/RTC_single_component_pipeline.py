@@ -4,18 +4,14 @@ from typing import Any
 import torch
 from transformers import pipeline
 
-from arc_spice.variational_pipelines.dropout_utils import (
-    dropout_off,
-    dropout_on,
-    set_dropout,
-)
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     CustomTranslationPipeline,
-    RTCVariationalPipeline,
+    RTCPipelineBase,
 )
+from arc_spice.variational_pipelines.utils import dropout_off, dropout_on, set_dropout
 
 
-class RTCSingleComponentPipeline(RTCVariationalPipeline):
+class RTCSingleComponentPipeline(RTCPipelineBase):
     """
     Single component version of the variational pipeline, which inherits methods from
     the main `RTCVariationalPipeline` class, without initialising models by overwriting
@@ -31,16 +27,10 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
         model_pars: dict[str, dict[str, str]],
         model_key: str,
         data_pars: dict[str, Any],
-        n_variational_runs: int = 5,
-        translation_batch_size: int = 8,
+        n_variational_runs=5,
+        translation_batch_size=8,
     ) -> None:
-        device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
-        )
+        super().__init__(n_variational_runs, translation_batch_size)
         # define objects that are needed and nothing else
         if model_key == "ocr":
             self.step_name = "recognition"
@@ -48,7 +38,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             self.ocr = pipeline(
                 task=model_pars["OCR"]["specific_task"],
                 model=model_pars["OCR"]["model"],
-                device=device,
+                device=self.device,
             )
             self.model = self.ocr.model
 
@@ -61,7 +51,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
                 model=model_pars["translator"]["model"],
                 max_length=512,
                 pipeline_class=CustomTranslationPipeline,
-                device=device,
+                device=self.device,
             )
             self.model = self.translator.model
             # need to initialise the NLI models in this case
@@ -74,7 +64,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
                 task=model_pars["classifier"]["specific_task"],
                 model=model_pars["classifier"]["model"],
                 multi_label=True,
-                device=device,
+                device=self.device,
             )
             self.model = self.classifier.model
             # topic description labels for the classifier
@@ -113,7 +103,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             "classification": self.classify_topic,
         }
         self.confidence_func_map: dict[str, Callable] = {
-            "recognition": self.recognise,
+            "recognition": self.recognise,  ### THIS NEEDS REPLACING WHEN COMPLETED
             "translation": self.translation_semantic_density,
             "classification": self.get_classification_confidence,
         }
