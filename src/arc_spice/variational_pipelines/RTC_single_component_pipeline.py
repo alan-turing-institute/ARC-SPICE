@@ -42,7 +42,7 @@ class RTCSingleComponentPipeline(RTCVariationalPipeline):
             else "cpu"
         )
         # define objects that are needed and nothing else
-        if model_key == "OCR":
+        if model_key == "ocr":
             self.step_name = "recognition"
             self.input_key = "ocr_data"
             self.ocr = pipeline(
