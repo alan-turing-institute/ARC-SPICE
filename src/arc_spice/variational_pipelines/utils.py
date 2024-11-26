@@ -15,11 +15,20 @@ class DummyPipeline:
     """
 
     def __init__(self, model_name):
+        """
+        Gives the dummy pipeline the required attributes for the method definitions
+
+        Args:
+            model_name: name of the pipeline that is being given a dummy
+        """
         self.model = model_name
 
     def __call__(self, *args, **kwargs):
         """
         Needs to be defined in subclass
+
+        Raises:
+            NotImplementedError: when called to prevent base class being used
         """
         error_msg = (
             f"{self.model} cannot be called directly and needs to be"
