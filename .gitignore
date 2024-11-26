@@ -168,3 +168,6 @@ local_notebooks
 
 # test caches
 tests/testdata/*/*/cache*
+
+# tensorboard logs
+logs/
