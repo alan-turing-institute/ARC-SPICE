@@ -1,10 +1,12 @@
 import json
 from typing import Any
 
+import datasets
 import torch
-from datasets import Dataset, DatasetDict, load_dataset
 from datasets.formatting.formatting import LazyRow
+from PIL import Image
 from torch.nn.functional import one_hot
+from trdg.generators import GeneratorFromStrings
 
 # For identifying where the adopted decisions begin
 ARTICLE_1_MARKERS = {
@@ -61,6 +63,17 @@ def extract_articles(
             for lang in languages
         }
     }
+
+
+def _make_ocr_data(text: str) -> list[tuple[Image.Image, str]]:
+    text_split = text.split()
+    generator = GeneratorFromStrings(text_split, count=len(text_split))
+    return list(generator)
+
+
+def make_ocr_data(item: LazyRow) -> dict[str, tuple[Image.Image] | tuple[str]]:
+    images, targets = zip(*_make_ocr_data(item["source_text"]), strict=True)
+    return {"ocr_images": images, "ocr_targets": targets}
 
 
 class TranslationPreProcesser:
@@ -121,7 +134,7 @@ def load_multieurlex(
     languages: list[str],
     drop_empty: bool = True,
     split: str | None = None,
-) -> tuple[DatasetDict, dict[str, Any]]:
+) -> tuple[datasets.DatasetDict, dict[str, Any]]:
     """
     load the multieurlex dataset
 
@@ -143,7 +156,7 @@ def load_multieurlex(
 
         load_langs = languages[0] if len(languages) == 1 else "all_languages"
 
-    dataset_dict = load_dataset(
+    dataset_dict = datasets.load_dataset(
         "multi_eurlex",
         load_langs,
         label_level=f"level_{level}",
@@ -152,13 +165,13 @@ def load_multieurlex(
     )
     # ensure we always return dataset dict even if only single split
     if split is not None:
-        if not isinstance(dataset_dict, Dataset):
+        if not isinstance(dataset_dict, datasets.Dataset):
             msg = (
                 "Error. load_dataset should return a Dataset object if split specified"
             )
             raise ValueError(msg)
 
-        tmp = DatasetDict()
+        tmp = datasets.DatasetDict()
         tmp[split] = dataset_dict
         dataset_dict = tmp
 
@@ -179,9 +192,13 @@ def load_multieurlex(
     return dataset_dict, metadata
 
 
-def load_multieurlex_for_translation(
-    data_dir: str, level: int, lang_pair: dict[str, str], drop_empty: bool = True
-) -> tuple[DatasetDict, dict[str, Any]]:
+def load_multieurlex_for_pipeline(
+    data_dir: str,
+    level: int,
+    lang_pair: dict[str, str],
+    drop_empty: bool = True,
+    load_ocr_data: bool = False,
+) -> tuple[datasets.DatasetDict, dict[str, Any]]:
     langs = [lang_pair["source"], lang_pair["target"]]
     dataset_dict, meta_data = load_multieurlex(
         data_dir=data_dir, level=level, languages=langs, drop_empty=drop_empty
@@ -189,4 +206,22 @@ def load_multieurlex_for_translation(
     # instantiate the preprocessor
     preprocesser = TranslationPreProcesser(lang_pair)
     # preprocess each split
-    return dataset_dict.map(preprocesser, remove_columns=["text"]), meta_data
+    dataset_dict = dataset_dict.map(preprocesser, remove_columns=["text"])
+
+    # TODO allow for OCR standalone?
+    if load_ocr_data:
+        # need to set features so loop through dataset dict manually
+        for k in dataset_dict:
+            feats = dataset_dict[k].features
+            dataset_dict[k] = dataset_dict[k].map(
+                make_ocr_data,
+                features=datasets.Features(
+                    {
+                        "ocr_images": datasets.Sequence(datasets.Image(decode=True)),
+                        "ocr_targets": datasets.Sequence(datasets.Value("string")),
+                        **feats,
+                    }
+                ),
+            )
+
+    return dataset_dict, meta_data
