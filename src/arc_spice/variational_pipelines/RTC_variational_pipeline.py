@@ -50,9 +50,11 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         super().__init__(n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
+            # task=model_pars["OCR"]["specific_task"],
             model=model_pars["OCR"]["model"],
-            device=self.device,
+            device=device,
+            max_new_tokens=20,
+            batch_size=8,
         )
         self.translator = pipeline(
             task=model_pars["translator"]["specific_task"],
@@ -83,7 +85,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         }
         # map pipeline names to their callable counterparts
         self.func_map = {
-            "recognition": self.recognise,
+            "recognition": self.translate,
             "translation": self.translate,
             "classification": self.classify_topic,
         }
@@ -163,8 +165,9 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
 
     @staticmethod
     def preprocess_ocr_data(data_dict: dict):
-        """Preprocess the OCR data, turning the images back from bytes to PIL images,
-        and removing None entries.
+        """
+        Preprocess the OCR data, turning the images back from bytes to PIL images, and
+        removing None entries.
 
         Args:
             data_dict: ocr data dictionary, split up by word for each input, with
@@ -198,19 +201,49 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
             if val is not None
         }
 
-    def recognise(self, inp) -> dict[str, str]:
+    def recognise(self, ocr_data_dict: dict) -> dict[str, str | list[dict[str, str]]]:
         """
         Function to perform OCR
 
         Args:
-            inp: input
+            oct_data_dict: ocr data dictionary, split up by word for each input, with
+                        structure,
+                            {
+                                idx (string): {
+                                    'image': {
+                                        'bytes': image (bytes),
+                                        'target': target word (str)
+                                    }
+                                }
+                            }
+                        some of the data will be Nonetype from a quirk of huggingface
 
         Returns:
-            dictionary of outputs
+            output_data dict: returns full predicted data by word for error measurement
+                                and uncertainty quantification, and output of full
+                                string,
+                            {
+                                'full_output': {
+                                    idx (int): {
+                                        'target': target string (str),
+                                        'generated_text': generated ocr string (str)
+                                    }
+                                }
+                                'output': full string (str)
+                            }
         """
-        # Until the OCR data is available
-        # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
-        return {"outputs": inp}
+        proc_ocr = self.preprocess_ocr_data(ocr_data_dict)
+        ocr_out = self.ocr([x["image"] for x in list(proc_ocr.values())])
+        return {
+            "full_output": [
+                {
+                    "target": itm[0]["target"],
+                    "generated_text": itm[1][0]["generated_text"],
+                }
+                for itm in zip(list(ocr_data_dict.values()), ocr_out, strict=True)
+            ],
+            "output": " ".join([x[0]["generated_text"] for x in ocr_out]),
+        }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """
