@@ -138,5 +138,4 @@ def run_inference(
             test_row=inp,
         )
         results.append({inp["celex_id"]: row_results_dict})
-        break
     return results

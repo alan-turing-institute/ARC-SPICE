@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Any
 
 import torch
@@ -24,62 +23,16 @@ class RTCSingleComponentPipeline(RTCPipelineBase):
 
     def __init__(
         self,
-        model_pars: dict[str, dict[str, str]],
-        model_key: str,
-        data_pars: dict[str, Any],
+        model,
+        step_name,
+        input_key,
+        forward_function,
+        confidence_function,
         n_variational_runs=5,
         translation_batch_size=8,
     ) -> None:
         super().__init__(n_variational_runs, translation_batch_size)
         # define objects that are needed and nothing else
-        if model_key == "ocr":
-            self.step_name = "recognition"
-            self.input_key = "ocr_data"
-            self.ocr = pipeline(
-                task=model_pars["OCR"]["specific_task"],
-                model=model_pars["OCR"]["model"],
-                device=self.device,
-            )
-            self.model = self.ocr.model
-
-        elif model_key == "translator":
-            self.step_name = "translation"
-            self.input_key = "source_text"
-            self.translation_batch_size = translation_batch_size
-            self.translator = pipeline(
-                task=model_pars["translator"]["specific_task"],
-                model=model_pars["translator"]["model"],
-                max_length=512,
-                pipeline_class=CustomTranslationPipeline,
-                device=self.device,
-            )
-            self.model = self.translator.model
-            # need to initialise the NLI models in this case
-            self._init_semantic_density()
-
-        elif model_key == "classifier":
-            self.step_name = "classification"
-            self.input_key = "target_text"
-            self.classifier = pipeline(
-                task=model_pars["classifier"]["specific_task"],
-                model=model_pars["classifier"]["model"],
-                multi_label=True,
-                device=self.device,
-            )
-            self.model = self.classifier.model
-            # topic description labels for the classifier
-            self.topic_labels = [
-                class_names_dict["en"]
-                for class_names_dict in data_pars["class_descriptors"]
-            ]
-        # if an incorrect model is not selected
-        else:
-            error_msg = (
-                f"model_key should be one of 'ocr', 'translator', or 'classifier',"
-                f" got {model_key}"
-            )
-            raise ValueError(error_msg)
-
         # naive outputs can remain the same, though only the appropriate outputs will
         # be outputted
         self.naive_outputs = {
@@ -95,20 +48,11 @@ class RTCSingleComponentPipeline(RTCPipelineBase):
                 "scores",
             ],
         }
-
-        # maps to ensure the correct foward method is used in inference.
-        self.foward_func_map: dict[str, Callable] = {
-            "recognition": self.recognise,
-            "translation": self.translate,
-            "classification": self.classify_topic,
-        }
-        self.confidence_func_map: dict[str, Callable] = {
-            "recognition": self.recognise,  ### THIS NEEDS REPLACING WHEN COMPLETED
-            "translation": self.translation_semantic_density,
-            "classification": self.get_classification_confidence,
-        }
-
-        self.n_variational_runs = n_variational_runs
+        self.model = model
+        self.step_name = step_name
+        self.input_key = input_key
+        self.forward_function = forward_function
+        self.confidence_function = confidence_function
 
     # clean inference
     def clean_inference(self, x):
@@ -117,7 +61,7 @@ class RTCSingleComponentPipeline(RTCPipelineBase):
         clean_output: dict[str, Any] = {
             self.step_name: {},
         }
-        clean_output[self.step_name] = self.foward_func_map[self.step_name](inp)
+        clean_output[self.step_name] = self.forward_function(inp)
         return clean_output
 
     def variational_inference(self, x):
@@ -133,9 +77,7 @@ class RTCSingleComponentPipeline(RTCPipelineBase):
         torch.nn.functional.dropout = dropout_on
         # do n runs of the inference
         for run_idx in range(self.n_variational_runs):
-            var_output[self.step_name][run_idx] = self.foward_func_map[self.step_name](
-                inp
-            )
+            var_output[self.step_name][run_idx] = self.forward_function(inp)
         # turn off dropout for this model
         set_dropout(model=self.model, dropout_flag=False)
         torch.nn.functional.dropout = dropout_off
@@ -143,6 +85,97 @@ class RTCSingleComponentPipeline(RTCPipelineBase):
         # For confidence function we need to pass both outputs in all cases
         # This allows the abstraction to self.confidence_func_map[self.step_name]
         conf_args = {"clean_output": clean_output, "var_output": var_output}
-        var_output = self.confidence_func_map[self.step_name](**conf_args)
+        var_output = self.confidence_function(**conf_args)
         # return both as in base function method
         return clean_output, var_output
+
+
+class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
+    def __init__(
+        self,
+        model_pars: dict[str, dict[str, str]],
+        n_variational_runs=5,
+        **kwargs,
+    ):
+        self._get_device()
+        self.ocr = pipeline(
+            task=model_pars["OCR"]["specific_task"],
+            model=model_pars["OCR"]["model"],
+            device=self.device,
+        )
+        super().__init__(
+            model=self.ocr.model,
+            step_name="recognition",
+            input_key="ocr_data",
+            forward_function=self.recognise,
+            confidence_function=self.recognise,  # THIS WILL NEED UPDATING : #issue 14
+            n_variational_runs=n_variational_runs,
+            **kwargs,
+        )
+
+
+class TranslationVariationalPipeline(RTCSingleComponentPipeline):
+    def __init__(
+        self,
+        model_pars: dict[str, dict[str, str]],
+        n_variational_runs=5,
+        translation_batch_size=8,
+        **kwargs,
+    ):
+        self._get_device()
+        self.translator = pipeline(
+            task=model_pars["translator"]["specific_task"],
+            model=model_pars["translator"]["model"],
+            max_length=512,
+            pipeline_class=CustomTranslationPipeline,
+            device=self.device,
+        )
+        # need to initialise the NLI models in this case
+        self._init_semantic_density()
+        super().__init__(
+            model=self.translator.model,
+            step_name="translation",
+            input_key="source_text",
+            forward_function=self.translate,
+            confidence_function=self.translation_semantic_density,
+            n_variational_runs=n_variational_runs,
+            translation_batch_size=translation_batch_size,
+        )
+
+
+class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
+    """
+    Classification Pipeline
+
+    Args:
+        RTCSingleComponentPipeline: Subclass of the `SingleComponentPipeline` base class
+    """
+
+    def __init__(
+        self,
+        model_pars: dict[str, dict[str, str]],
+        data_pars: dict[str, Any],
+        n_variational_runs=5,
+        **kwargs,
+    ):
+        self._get_device()
+        self.classifier = pipeline(
+            task=model_pars["classifier"]["specific_task"],
+            model=model_pars["classifier"]["model"],
+            multi_label=True,
+            device=self.device,
+        )
+        super().__init__(
+            model=self.classifier.model,
+            step_name="classification",
+            input_key="target_text",
+            forward_function=self.classify_topic,
+            confidence_function=self.get_classification_confidence,
+            n_variational_runs=n_variational_runs,
+            **kwargs,
+        )
+        # topic description labels for the classifier
+        self.topic_labels = [
+            class_names_dict["en"]
+            for class_names_dict in data_pars["class_descriptors"]
+        ]

@@ -32,7 +32,7 @@ class DummyPipeline:
         """
         error_msg = (
             f"{self.model} cannot be called directly and needs to be"
-            " defined in a subclass."
+            " defined within a subclass."
         )
         raise NotImplementedError(error_msg)
 
@@ -146,9 +146,12 @@ class RTCPipelineBase:
         self.n_variational_runs = n_variational_runs
         self.translation_batch_size = translation_batch_size
 
-        self.ocr = DummyPipeline("ocr")
-        self.translator = DummyPipeline("translator")
-        self.classifier = DummyPipeline("classifier")
+        if not hasattr(self, "ocr"):
+            self.ocr = DummyPipeline("ocr")
+        if not hasattr(self, "translator"):
+            self.translator = DummyPipeline("translator")
+        if not hasattr(self, "classifier"):
+            self.classifier = DummyPipeline("classifier")
 
         # map pipeline names to their pipeline counterparts
 
@@ -177,6 +180,15 @@ class RTCPipelineBase:
 
         self.nli_model = AutoModelForSequenceClassification.from_pretrained(
             "microsoft/deberta-large-mnli"
+        )
+
+    def _get_device(self):
+        self.device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
 
     @staticmethod

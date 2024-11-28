@@ -19,7 +19,9 @@ from arc_spice.data.multieurlex_utils import load_multieurlex_for_translation
 from arc_spice.eval.inference_utils import ResultsGetter, run_inference
 from arc_spice.utils import open_yaml_path
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
-    RTCSingleComponentPipeline,
+    ClassificationVariationalPipeline,
+    RecognitionVariationalPipeline,
+    TranslationVariationalPipeline,
 )
 
 OUTPUT_DIR = "outputs"
@@ -31,9 +33,18 @@ def main(args):
     pipeline_config = open_yaml_path(args.pipeline_config)
     data_sets, meta_data = load_multieurlex_for_translation(**data_config)
     test_loader = data_sets["test"]
-    rtc_single_component_pipeline = RTCSingleComponentPipeline(
-        model_pars=pipeline_config, data_pars=meta_data, model_key=args.model_key
-    )
+    if args.model_key == "ocr":
+        rtc_single_component_pipeline = RecognitionVariationalPipeline(
+            model_pars=pipeline_config, data_pars=meta_data
+        )
+    if args.model_key == "translator":
+        rtc_single_component_pipeline = TranslationVariationalPipeline(
+            model_pars=pipeline_config, data_pars=meta_data
+        )
+    if args.model_key == "classifier":
+        rtc_single_component_pipeline = ClassificationVariationalPipeline(
+            model_pars=pipeline_config, data_pars=meta_data
+        )
     results_getter = ResultsGetter(meta_data["n_classes"])
 
     test_results = run_inference(
