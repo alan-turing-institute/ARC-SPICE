@@ -113,13 +113,7 @@ dropout_off = partial(dropout_w_training_override, training_override=False)
 class RTCPipelineBase:
     def __init__(self, n_variational_runs=5, translation_batch_size=8):
         # device for inference
-        self.device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
-        )
+        self.set_device()
         debug_msg_device = f"Loading pipeline on device: {self.device}"
         logging.info(debug_msg_device)
         # map pipeline names to their callable counterparts
@@ -182,7 +176,7 @@ class RTCPipelineBase:
             "microsoft/deberta-large-mnli"
         )
 
-    def _get_device(self):
+    def set_device(self):
         self.device = (
             "cuda"
             if torch.cuda.is_available()

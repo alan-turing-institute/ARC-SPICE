@@ -5,7 +5,9 @@ import pytest
 
 from arc_spice.utils import open_yaml_path
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
-    RTCSingleComponentPipeline,
+    ClassificationVariationalPipeline,
+    RecognitionVariationalPipeline,
+    TranslationVariationalPipeline,
 )
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
@@ -91,32 +93,21 @@ def test_single_component_inputs(dummy_data, dummy_metadata):
             ),
             return_value=None,
         ):
-            recognise_pipeline = RTCSingleComponentPipeline(
+            recognise_pipeline = RecognitionVariationalPipeline(
                 model_pars=pipeline_config,
-                model_key="ocr",
-                data_pars=dummy_metadata,
+            )
+            translate_pipeline = TranslationVariationalPipeline(
+                model_pars=pipeline_config,
                 translation_batch_size=1,
             )
-            translate_pipeline = RTCSingleComponentPipeline(
+            classify_pipeline = ClassificationVariationalPipeline(
                 model_pars=pipeline_config,
-                model_key="translator",
                 data_pars=dummy_metadata,
-                translation_batch_size=1,
-            )
-            classify_pipeline = RTCSingleComponentPipeline(
-                model_pars=pipeline_config,
-                model_key="classifier",
-                data_pars=dummy_metadata,
-                translation_batch_size=1,
             )
 
-    recognise_pipeline.foward_func_map[recognise_pipeline.step_name] = MagicMock(
-        return_value=dummy_recognise_output
-    )
-    translate_pipeline.foward_func_map[translate_pipeline.step_name] = MagicMock(
-        return_value=dummy_translate_output
-    )
-    classify_pipeline.foward_func_map[classify_pipeline.step_name] = MagicMock(
+    recognise_pipeline.forward_function = MagicMock(return_value=dummy_recognise_output)
+    translate_pipeline.forward_function = MagicMock(return_value=dummy_translate_output)
+    classify_pipeline.forward_function = MagicMock(
         return_value=dummy_classification_output
     )
 
@@ -124,12 +115,6 @@ def test_single_component_inputs(dummy_data, dummy_metadata):
     translate_pipeline.clean_inference(dummy_data)
     classify_pipeline.clean_inference(dummy_data)
 
-    recognise_pipeline.foward_func_map[recognise_pipeline.step_name].assert_called_with(
-        dummy_data["ocr_data"]
-    )
-    translate_pipeline.foward_func_map[translate_pipeline.step_name].assert_called_with(
-        dummy_data["source_text"]
-    )
-    classify_pipeline.foward_func_map[classify_pipeline.step_name].assert_called_with(
-        dummy_data["target_text"]
-    )
+    recognise_pipeline.forward_function.assert_called_with(dummy_data["ocr_data"])
+    translate_pipeline.forward_function.assert_called_with(dummy_data["source_text"])
+    classify_pipeline.forward_function.assert_called_with(dummy_data["target_text"])

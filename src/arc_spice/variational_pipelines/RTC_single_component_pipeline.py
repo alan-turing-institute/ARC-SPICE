@@ -97,11 +97,12 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
         n_variational_runs=5,
         **kwargs,
     ):
-        self._get_device()
+        self.set_device()
         self.ocr = pipeline(
             task=model_pars["OCR"]["specific_task"],
             model=model_pars["OCR"]["model"],
             device=self.device,
+            **kwargs,
         )
         super().__init__(
             model=self.ocr.model,
@@ -122,7 +123,7 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
         translation_batch_size=8,
         **kwargs,
     ):
-        self._get_device()
+        self.set_device()
         self.translator = pipeline(
             task=model_pars["translator"]["specific_task"],
             model=model_pars["translator"]["model"],
@@ -158,7 +159,7 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
         n_variational_runs=5,
         **kwargs,
     ):
-        self._get_device()
+        self.set_device()
         self.classifier = pipeline(
             task=model_pars["classifier"]["specific_task"],
             model=model_pars["classifier"]["model"],
