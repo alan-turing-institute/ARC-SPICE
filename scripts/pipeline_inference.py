@@ -1,6 +1,7 @@
-import argparse
 import json
 import os
+
+from jsonargparse import CLI
 
 from arc_spice.data.multieurlex_utils import load_multieurlex_for_translation
 from arc_spice.eval.inference_utils import ResultsGetter, run_inference
@@ -12,10 +13,17 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 OUTPUT_DIR = "outputs"
 
 
-def main(args):
+def main(pipeline_config_pth: str, data_config_pth: str):
+    """
+    Run inference on a given pipeline with provided data config
+
+    Args:
+        pipeline_config_pth: path to pipeline config yaml file
+        data_config_pth: path to data config yaml file
+    """
     # initialise pipeline
-    data_config = open_yaml_path(args.data_config)
-    pipeline_config = open_yaml_path(args.pipeline_config)
+    data_config = open_yaml_path(data_config_pth)
+    pipeline_config = open_yaml_path(pipeline_config_pth)
     data_sets, meta_data = load_multieurlex_for_translation(**data_config)
     test_loader = data_sets["test"]
     rtc_variational_pipeline = RTCVariationalPipeline(
@@ -29,8 +37,8 @@ def main(args):
         results_getter=results_getter,
     )
 
-    data_name = args.data_config.split("/")[-1].split(".")[0]
-    pipeline_name = args.pipeline_config.split("/")[-1].split(".")[0]
+    data_name = data_config_pth.split("/")[-1].split(".")[0]
+    pipeline_name = pipeline_config_pth.split("/")[-1].split(".")[0]
     save_loc = f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}"
     os.makedirs(save_loc, exist_ok=True)
 
@@ -39,23 +47,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=(
-            "From an experiment path generates evaluation plots for every experiment."
-        )
-    )
-    parser.add_argument(
-        "pipeline_config",
-        type=str,
-        default=None,
-        help="Path to pipeline config.",
-    )
-    parser.add_argument(
-        "data_config",
-        type=str,
-        default=None,
-        help="Path to data config.",
-    )
-    args = parser.parse_args()
-
-    main(args)
+    CLI(main)
