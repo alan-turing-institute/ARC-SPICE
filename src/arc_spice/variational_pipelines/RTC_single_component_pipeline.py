@@ -5,12 +5,12 @@ from transformers import pipeline
 
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     CustomTranslationPipeline,
-    RTCPipelineBase,
+    RTCVariationalPipelineBase,
 )
 from arc_spice.variational_pipelines.utils import dropout_off, dropout_on, set_dropout
 
 
-class RTCSingleComponentPipeline(RTCPipelineBase):
+class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
     """
     Single component version of the variational pipeline, which inherits methods from
     the main `RTCVariationalPipeline` class, without initialising models by overwriting

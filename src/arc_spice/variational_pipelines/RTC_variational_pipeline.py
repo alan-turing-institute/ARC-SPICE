@@ -5,7 +5,7 @@ import torch
 from transformers import TranslationPipeline, pipeline
 
 from arc_spice.variational_pipelines.utils import (
-    RTCPipelineBase,
+    RTCVariationalPipelineBase,
     dropout_off,
     dropout_on,
     set_dropout,
@@ -26,7 +26,7 @@ def mean_pooling(model_output, attention_mask):
 
 
 # OCR, Translationslation, Topic Classification
-class RTCVariationalPipeline(RTCPipelineBase):
+class RTCVariationalPipeline(RTCVariationalPipelineBase):
     """
     variational version of the RTC pipeline
     """

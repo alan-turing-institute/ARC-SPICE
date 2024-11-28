@@ -110,7 +110,7 @@ dropout_on = partial(dropout_w_training_override, training_override=True)
 dropout_off = partial(dropout_w_training_override, training_override=False)
 
 
-class RTCPipelineBase:
+class RTCVariationalPipelineBase:
     def __init__(self, n_variational_runs=5, translation_batch_size=8):
         # device for inference
         self.set_device()
