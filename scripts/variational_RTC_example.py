@@ -91,9 +91,7 @@ def main(rtc_pars):
     rtc_variational_pipeline.check_dropout()
 
     # perform variational inference
-    clean_output, var_output = rtc_variational_pipeline.variational_inference(
-        test_row["source_text"]
-    )
+    clean_output, var_output = rtc_variational_pipeline.variational_inference(test_row)
 
     comet_model = get_comet_model()
 
@@ -115,4 +113,5 @@ if __name__ == "__main__":
             "model": "claritylab/zero-shot-explicit-binary-bert",
         },
     }
+
     main(rtc_pars=rtc_pars)

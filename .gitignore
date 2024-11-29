@@ -163,6 +163,7 @@ slurm_scripts/slurm_logs*
 # other
 temp
 .vscode
+outputs
 local_notebooks
 
 # test caches
