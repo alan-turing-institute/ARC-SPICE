@@ -12,7 +12,6 @@ from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
-from arc_spice.variational_pipelines.utils import DummyPipeline
 
 CONFIG_ROOT = f"{os.path.dirname(os.path.abspath(__file__))}/../config/"
 
@@ -46,7 +45,7 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     with patch(  # noqa: SIM117
         "arc_spice.variational_pipelines.RTC_variational_pipeline.pipeline",
-        return_value=DummyPipeline("dummy_model"),
+        return_value=None,
     ):
         with patch(
             (
@@ -83,8 +82,7 @@ def test_single_component_inputs(dummy_data, dummy_metadata):
     dummy_classification_output = {"outputs": "classification"}
 
     with patch(  # noqa: SIM117
-        "arc_spice.variational_pipelines.RTC_single_component_pipeline.pipeline",
-        return_value=DummyPipeline("dummy_model"),
+        "arc_spice.variational_pipelines.RTC_single_component_pipeline.pipeline"
     ):
         with patch(
             (

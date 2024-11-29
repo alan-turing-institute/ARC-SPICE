@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any
 
@@ -7,34 +8,6 @@ from torch.nn.functional import softmax
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Pipeline
 
 logger = logging.Logger("RTC_variational_pipeline")
-
-
-class DummyPipeline:
-    """
-    For initialising a base pipeline which needs to be overwritten by a subclass
-    """
-
-    def __init__(self, model_name):
-        """
-        Gives the dummy pipeline the required attributes for the method definitions
-
-        Args:
-            model_name: name of the pipeline that is being given a dummy
-        """
-        self.model = model_name
-
-    def __call__(self, *args, **kwargs):
-        """
-        Needs to be defined in subclass
-
-        Raises:
-            NotImplementedError: when called to prevent base class being used
-        """
-        error_msg = (
-            f"{self.model} cannot be called directly and needs to be"
-            " defined within a subclass."
-        )
-        raise NotImplementedError(error_msg)
 
 
 def set_dropout(model: torch.nn.Module, dropout_flag: bool) -> None:
@@ -110,7 +83,20 @@ dropout_on = partial(dropout_w_training_override, training_override=True)
 dropout_off = partial(dropout_w_training_override, training_override=False)
 
 
-class RTCVariationalPipelineBase:
+class RTCVariationalPipelineBase(ABC):
+    """
+    Base class for the RTC variational pipelines, cannot be instantiated directly, needs
+    to have `clean_inference` and `variational_inference` defined by subclass.
+    """
+
+    @abstractmethod
+    def clean_inference(self, x):
+        pass
+
+    @abstractmethod
+    def variational_inference(self, x):
+        pass
+
     def __init__(self, n_variational_runs=5, translation_batch_size=8):
         # device for inference
         self.set_device()
@@ -140,17 +126,13 @@ class RTCVariationalPipelineBase:
         self.n_variational_runs = n_variational_runs
         self.translation_batch_size = translation_batch_size
 
-        if not hasattr(self, "ocr"):
-            self.ocr = DummyPipeline("ocr")
-        if not hasattr(self, "translator"):
-            self.translator = DummyPipeline("translator")
-        if not hasattr(self, "classifier"):
-            self.classifier = DummyPipeline("classifier")
+        self.ocr = None
+        self.translator = None
+        self.classifier = None
 
         # map pipeline names to their pipeline counterparts
 
         self.topic_labels = None  # This should be defined in subclass if needed
-        self._init_pipeline_map()
 
     def _init_pipeline_map(self):
         """
@@ -212,7 +194,13 @@ class RTCVariationalPipelineBase:
         """
         logger.debug("\n\n------------------ Testing Dropout --------------------")
         for model_key, pl in self.pipeline_map.items():
-            if not isinstance(pl, Pipeline):
+            # only test models that exist
+            if pl is None:
+                pipeline_none_msg_key = (
+                    f"pipeline under model key, `{model_key}`, is currently"
+                    " set to None. Was this intended?"
+                )
+                logger.debug(pipeline_none_msg_key)
                 continue
             # turn on dropout for this model
             set_dropout(model=pl.model, dropout_flag=True)
@@ -240,6 +228,8 @@ class RTCVariationalPipelineBase:
             dictionary of outputs
         """
         # Until the OCR data is available
+        # This will need the below comment:
+        #       type: ignore[misc]
         # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
         return {"outputs": inp["source_text"]}
 
@@ -256,7 +246,7 @@ class RTCVariationalPipelineBase:
         # split text into sentences
         text_splits = self.split_translate_inputs(text, ".")
         # perform translation on sentences
-        translator_outputs = self.translator(
+        translator_outputs = self.translator(  # type: ignore[misc]
             text_splits,
             output_logits=True,
             return_dict_in_generate=True,
@@ -297,7 +287,7 @@ class RTCVariationalPipelineBase:
         Returns:
             Dictionary of classification outputs, namely the output scores.
         """
-        forward = self.classifier(text, self.topic_labels)
+        forward = self.classifier(text, self.topic_labels)  # type: ignore[misc]
         return {"scores": forward["scores"]}
 
     def stack_translator_sentence_metrics(

@@ -23,7 +23,6 @@ class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
 
     def __init__(
         self,
-        model,
         step_name,
         input_key,
         forward_function,
@@ -48,7 +47,6 @@ class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
                 "scores",
             ],
         }
-        self.model = model
         self.step_name = step_name
         self.input_key = input_key
         self.forward_function = forward_function
@@ -73,13 +71,14 @@ class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
         }
         # variational stage is the same as the full pipeline model, with different input
         # turn on dropout for this model
-        set_dropout(model=self.model, dropout_flag=True)
+        # model will be defined in the subclass
+        set_dropout(model=self.model, dropout_flag=True)  # type: ignore[attr-defined]
         torch.nn.functional.dropout = dropout_on
         # do n runs of the inference
         for run_idx in range(self.n_variational_runs):
             var_output[self.step_name][run_idx] = self.forward_function(inp)
         # turn off dropout for this model
-        set_dropout(model=self.model, dropout_flag=False)
+        set_dropout(model=self.model, dropout_flag=False)  # type: ignore[attr-defined]
         torch.nn.functional.dropout = dropout_off
         var_output = self.stack_variational_outputs(var_output)
         # For confidence function we need to pass both outputs in all cases
@@ -104,8 +103,8 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
             device=self.device,
             **kwargs,
         )
+        self.model = self.ocr.model
         super().__init__(
-            model=self.ocr.model,
             step_name="recognition",
             input_key="ocr_data",
             forward_function=self.recognise,
@@ -113,6 +112,7 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
             n_variational_runs=n_variational_runs,
             **kwargs,
         )
+        self._init_pipeline_map()
 
 
 class TranslationVariationalPipeline(RTCSingleComponentPipeline):
@@ -124,17 +124,9 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
         **kwargs,
     ):
         self.set_device()
-        self.translator = pipeline(
-            task=model_pars["translator"]["specific_task"],
-            model=model_pars["translator"]["model"],
-            max_length=512,
-            pipeline_class=CustomTranslationPipeline,
-            device=self.device,
-        )
         # need to initialise the NLI models in this case
         self._init_semantic_density()
         super().__init__(
-            model=self.translator.model,
             step_name="translation",
             input_key="source_text",
             forward_function=self.translate,
@@ -142,6 +134,15 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
             n_variational_runs=n_variational_runs,
             translation_batch_size=translation_batch_size,
         )
+        self.translator = pipeline(
+            task=model_pars["translator"]["specific_task"],
+            model=model_pars["translator"]["model"],
+            max_length=512,
+            pipeline_class=CustomTranslationPipeline,
+            device=self.device,
+        )
+        self.model = self.translator.model
+        self._init_pipeline_map()
 
 
 class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
@@ -160,14 +161,7 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
         **kwargs,
     ):
         self.set_device()
-        self.classifier = pipeline(
-            task=model_pars["classifier"]["specific_task"],
-            model=model_pars["classifier"]["model"],
-            multi_label=True,
-            device=self.device,
-        )
         super().__init__(
-            model=self.classifier.model,
             step_name="classification",
             input_key="target_text",
             forward_function=self.classify_topic,
@@ -175,8 +169,16 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
             n_variational_runs=n_variational_runs,
             **kwargs,
         )
+        self.classifier = pipeline(
+            task=model_pars["classifier"]["specific_task"],
+            model=model_pars["classifier"]["model"],
+            multi_label=True,
+            device=self.device,
+        )
+        self.model = self.classifier.model
         # topic description labels for the classifier
         self.topic_labels = [
             class_names_dict["en"]
             for class_names_dict in data_pars["class_descriptors"]
         ]
+        self._init_pipeline_map()
