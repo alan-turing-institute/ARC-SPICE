@@ -3,11 +3,12 @@ from collections.abc import Callable
 from typing import Any
 
 import torch
-from sklearn.metrics import hamming_loss, zero_one_loss
+from sklearn.metrics import hamming_loss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_utils import MultiHot
+from arc_spice.eval.classification_error import zero_one_loss_ceil
 from arc_spice.eval.translation_error import get_comet_model
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     RTCSingleComponentPipeline,
@@ -112,7 +113,7 @@ class ResultsGetter:
         preds = torch.round(mean_scores).tolist()
         labels = self.multihot(test_row["labels"])
         hamming_acc = hamming_loss(y_pred=preds, y_true=labels)
-        zero_one_acc = zero_one_loss(y_pred=preds, y_true=labels)
+        zero_one_acc = zero_one_loss_ceil(y_pred=preds, y_target=labels)
 
         return ClassificationResults(
             mean_scores=mean_scores.detach().tolist(),

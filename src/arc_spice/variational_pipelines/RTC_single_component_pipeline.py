@@ -98,8 +98,8 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
     ):
         self.set_device()
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
-            model=model_pars["OCR"]["model"],
+            task=model_pars["ocr"]["specific_task"],
+            model=model_pars["ocr"]["model"],
             device=self.device,
             **kwargs,
         )

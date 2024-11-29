@@ -15,7 +15,7 @@ def main(experiment_config_path: str):
     Args:
         experiment_config_path: _description_
     """
-    experiment_name = experiment_config_path.split('/')[-1].split('.')[0]
+    experiment_name = experiment_config_path.split("/")[-1].split(".")[0]
     experiment_config = open_yaml_path(experiment_config_path)
     pipeline_conf_dir = (
         f"{PROJECT_DIR}/config/RTC_configs/{experiment_config['pipeline_config']}.yaml"
@@ -37,11 +37,12 @@ def main(experiment_config_path: str):
             {
                 "script_name": (
                     "scripts/single_component_inference.py "
-                    f"{pipeline_conf_dir} {data_conf_dir} {seed} {experiment_name} {model}"
+                    f"{pipeline_conf_dir} {data_conf_dir} {seed}"
+                    f" {experiment_name} {model}"
                 ),
                 "array_number": 0,
                 "job_name": f"{experiment_name}_{model}",
-                "seed": seed
+                "seed": seed,
             }
         )
         train_script = template.render(script_dict)

@@ -41,8 +41,8 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         super().__init__(n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
-            model=model_pars["OCR"]["model"],
+            task=model_pars["ocr"]["specific_task"],
+            model=model_pars["ocr"]["model"],
             device=self.device,
         )
         self.translator = pipeline(

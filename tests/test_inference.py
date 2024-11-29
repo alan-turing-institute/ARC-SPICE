@@ -2,7 +2,9 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sklearn.metrics import hamming_loss
 
+from arc_spice.eval.classification_error import zero_one_loss_ceil
 from arc_spice.utils import open_yaml_path
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     ClassificationVariationalPipeline,
@@ -38,6 +40,35 @@ def dummy_metadata():
             {"en": f"class_{i}", "fr": f"classe_{i}"} for i in list(range(n_classes))
         ],
     }
+
+
+def test_errors():
+    dummy_target = [0, 1, 0, 1, 0]
+    dummy_middle_output = [1, 1, 0, 1, 0]
+
+    assert hamming_loss(dummy_target, dummy_middle_output) == pytest.approx(
+        0.2, abs=1e-5
+    )
+    assert zero_one_loss_ceil(dummy_target, dummy_middle_output) == pytest.approx(
+        1.0, abs=1e-5
+    )
+
+    dummy_correct_output = [0, 1, 0, 1, 0]
+
+    assert hamming_loss(dummy_target, dummy_correct_output) == pytest.approx(
+        0.0, abs=1e-5
+    )
+    assert zero_one_loss_ceil(dummy_target, dummy_correct_output) == pytest.approx(
+        0.0, abs=1e-5
+    )
+
+    dummy_incorrect_output = [1, 0, 1, 0, 1]
+    assert hamming_loss(dummy_target, dummy_incorrect_output) == pytest.approx(
+        1.0, abs=1e-5
+    )
+    assert zero_one_loss_ceil(dummy_target, dummy_incorrect_output) == pytest.approx(
+        1.0, abs=1e-5
+    )
 
 
 def test_pipeline_inputs(dummy_data, dummy_metadata):
