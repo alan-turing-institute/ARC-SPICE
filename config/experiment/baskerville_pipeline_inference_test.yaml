@@ -1,0 +1,13 @@
+data_config: l1_fr_to_en
+
+pipeline_config: roberta-mt5-zero-shot
+
+seed:
+  - 42
+
+bask:
+  jobname: "test"
+  walltime: '0-12:0:0'
+  gpu_number: 1
+  node_number: 1
+  hf_cache_dir: "/bask/projects/v/vjgo8416-spice/hf_cache"

@@ -18,7 +18,7 @@ from jsonargparse import CLI
 
 from arc_spice.data.multieurlex_utils import load_multieurlex_for_translation
 from arc_spice.eval.inference_utils import ResultsGetter, run_inference
-from arc_spice.utils import open_yaml_path
+from arc_spice.utils import open_yaml_path, seed_everything
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     ClassificationVariationalPipeline,
     RecognitionVariationalPipeline,
@@ -28,15 +28,25 @@ from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
 OUTPUT_DIR = "outputs"
 
 
-def main(pipeline_config_pth: str, data_config_pth: str, model_key: str):
+def main(
+    pipeline_config_pth: str,
+    data_config_pth: str,
+    seed: int,
+    experiment_name: str,
+    model_key: str,
+):
     """
     Run inference on a given pipeline component with provided data config and model key.
 
     Args:
         pipeline_config_pth: path to pipeline config yaml file
         data_config_pth: path to data config yaml file
+        seed: seed for the the inference pass
+        experiment_name: name of experiment for saving purposes
         model_key: name of model on which to run inference
     """
+    # seed experiment
+    seed_everything(seed=seed)
     # initialise pipeline
     data_config = open_yaml_path(data_config_pth)
     pipeline_config = open_yaml_path(pipeline_config_pth)
@@ -72,7 +82,7 @@ def main(pipeline_config_pth: str, data_config_pth: str, model_key: str):
     data_name = data_config_pth.split("/")[-1].split(".")[0]
     pipeline_name = pipeline_config_pth.split("/")[-1].split(".")[0]
     save_loc = (
-        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/"
+        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/{experiment_name}"
         f"single_component"
     )
     os.makedirs(save_loc, exist_ok=True)
