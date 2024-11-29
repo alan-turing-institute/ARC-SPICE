@@ -15,6 +15,7 @@ def main(experiment_config_path: str):
     Args:
         experiment_config_path: _description_
     """
+    experiment_name = experiment_config_path.split('/')[-1].split('.')[0]
     experiment_config = open_yaml_path(experiment_config_path)
     pipeline_conf_dir = (
         f"{PROJECT_DIR}/config/RTC_configs/{experiment_config['pipeline_config']}.yaml"
@@ -31,19 +32,21 @@ def main(experiment_config_path: str):
     template = environment.get_template("jobscript_template.sh")
     for model in pipeline_config:
         script_dict: dict = experiment_config["bask"]
+        seed = experiment_config["seed"][0]
         script_dict.update(
             {
                 "script_name": (
-                    "single_component_inference.py "
-                    f"{pipeline_conf_dir} {data_conf_dir} {model}"
+                    "scripts/single_component_inference.py "
+                    f"{pipeline_conf_dir} {data_conf_dir} {seed} {experiment_name} {model}"
                 ),
                 "array_number": 0,
-                "job_name": "test",
+                "job_name": f"{experiment_name}_{model}",
+                "seed": seed
             }
         )
         train_script = template.render(script_dict)
 
-        with open(f"temp/{model}_test.sh", "w") as f:
+        with open(f"slurm_scripts/{model}_test.sh", "w") as f:
             f.write(train_script)
 
 
