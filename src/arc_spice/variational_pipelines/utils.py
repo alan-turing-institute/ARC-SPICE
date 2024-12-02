@@ -4,6 +4,7 @@ from functools import partial
 from typing import Any
 
 import torch
+from PIL import Image
 from torch.nn.functional import softmax
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, Pipeline
 
@@ -217,21 +218,40 @@ class RTCVariationalPipelineBase(ABC):
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
 
-    def recognise(self, inp) -> dict[str, str]:
+    def recognise(
+        self, inp: dict[str, tuple[Image.Image] | tuple[str]]
+    ) -> dict[str, str | list[dict[str, str]]]:
         """
         Function to perform OCR
 
         Args:
-            inp: input
+            inp: dictionary with structure:
+                {
+                    'ocr_images': list[images],
+                    'ocr_targers': list[targets]
+                }
 
         Returns:
-            dictionary of outputs
+            dictionary of outputs with structure:
+                {
+                    'full_output': list[
+                        {
+                            'target': original target,
+                            'generated_text': generated text from OCR
+                        }
+                    ],
+                    'output': full text
+                }
         """
-        # Until the OCR data is available
-        # This will need the below comment:
-        #       type: ignore[misc]
-        # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
-        return {"outputs": inp["source_text"]}
+        out = self.ocr(inp["ocr_images"])  # type: ignore[misc]
+        text = " ".join([itm[0]["generated_text"] for itm in out])
+        return {
+            "full_output": [
+                {"target": target, "generated_text": gen_text[0]["generated_text"]}
+                for target, gen_text in zip(inp["ocr_targets"], out, strict=True)
+            ],
+            "output": text,
+        }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """
