@@ -82,7 +82,7 @@ def main(
     data_name = data_config_pth.split("/")[-1].split(".")[0]
     pipeline_name = pipeline_config_pth.split("/")[-1].split(".")[0]
     save_loc = (
-        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/{experiment_name}"
+        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/{experiment_name}/"
         f"single_component"
     )
     os.makedirs(save_loc, exist_ok=True)

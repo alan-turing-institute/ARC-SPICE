@@ -259,14 +259,11 @@ class RTCVariationalPipelineBase(ABC):
         ]
         # join these to create the full translation
         full_translation = ("").join(sentence_translations)
-        # get softmax of the logits to get token probabilities
-        softmax_logits = softmax(translator_outputs[0]["raw_outputs"]["logits"], dim=-1)
-        max_token_scores = torch.max(softmax_logits, dim=-1).values.squeeze(dim=0)
         # record the output and token probabilities
         confidence_metrics = [
             {
                 "outputs": translator_output["translation_text"],
-                "probs": max_token_scores,
+                "probs": translator_output["raw_outputs"]["scores"],
             }
             for translator_output in translator_outputs
         ]
@@ -373,7 +370,8 @@ class RTCVariationalPipelineBase(ABC):
 
         # TODO vectorize
         # calculate conditional probabilities take power first to avoid NaN
-        for var_index, var_score in enumerate(var_scores):
+        for var_index, var_score_out in enumerate(var_scores):
+            var_score = var_score_out.squeeze()
             cond_probs[var_index] = torch.prod(
                 torch.pow(var_score, 1 / len(var_score)), dim=-1
             )
@@ -381,7 +379,6 @@ class RTCVariationalPipelineBase(ABC):
         semantic_density = (1 / torch.sum(cond_probs)) * torch.sum(
             torch.mul(cond_probs, kernel_funcs)
         )
-
         return semantic_density.item(), sequence_length
 
     def translation_semantic_density(

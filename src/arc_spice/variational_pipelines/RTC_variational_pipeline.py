@@ -2,6 +2,7 @@ import copy
 from typing import Any
 
 import torch
+from torch.nn.functional import softmax
 from transformers import TranslationPipeline, pipeline
 
 from arc_spice.variational_pipelines.utils import (
@@ -180,5 +181,8 @@ class CustomTranslationPipeline(TranslationPipeline):
         # logits are a tuple of length output_ids[-1]-1
         # each element is a tensor of shape (batch_size, vocab_size)
         logits = torch.stack(out["logits"], dim=1)
+        # get softmax of the logits to get token probabilities
+        softmax_logits = softmax(logits, dim=-1)
+        max_token_scores = torch.max(softmax_logits, dim=-1).values
 
-        return {"output_ids": output_ids, "logits": logits}
+        return {"output_ids": output_ids, "scores": max_token_scores}
