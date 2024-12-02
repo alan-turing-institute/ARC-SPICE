@@ -6,7 +6,7 @@ import torch
 from datasets.formatting.formatting import LazyRow
 from PIL import Image
 from torch.nn.functional import one_hot
-from trdg.generators import GeneratorFromStrings
+# from trdg.generators import GeneratorFromStrings
 
 # For identifying where the adopted decisions begin
 ARTICLE_1_MARKERS = {

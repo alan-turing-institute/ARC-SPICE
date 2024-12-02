@@ -37,7 +37,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         model_pars: dict[str, dict[str, str]],
         data_pars: dict[str, Any],
         n_variational_runs=5,
-        translation_batch_size=8,
+        translation_batch_size=16,
     ) -> None:
         super().__init__(n_variational_runs, translation_batch_size)
         # defining the pipeline objects
