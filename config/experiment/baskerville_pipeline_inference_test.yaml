@@ -6,7 +6,7 @@ seed:
   - 42
 
 bask:
-  jobname: "test"
+  jobname: "shortened_input_test"
   walltime: '0-12:0:0'
   gpu_number: 1
   node_number: 1
