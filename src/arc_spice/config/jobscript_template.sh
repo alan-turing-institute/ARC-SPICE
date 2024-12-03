@@ -6,7 +6,6 @@
 #SBATCH --nodes {{ node_number }}
 #SBATCH --gpus {{ gpu_number }}
 #SBATCH --output /bask/projects/v/vjgo8416-spice/ARC-SPICE/slurm_scripts/slurm_logs/{{ job_name }}-%j.out
-#SBATCH --array=0-{{ array_number }}
 #SBATCH --cpus-per-gpu 18
 
 

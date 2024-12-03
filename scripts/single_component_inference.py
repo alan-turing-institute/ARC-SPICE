@@ -45,6 +45,14 @@ def main(
         experiment_name: name of experiment for saving purposes
         model_key: name of model on which to run inference
     """
+    # create save directory -> fail if already exists
+    data_name = data_config_pth.split("/")[-1].split(".")[0]
+    pipeline_name = pipeline_config_pth.split("/")[-1].split(".")[0]
+    save_loc = (
+        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/"
+        f"{experiment_name}/seed_{seed}/"
+    )
+    os.makedirs(save_loc, exist_ok=False)
     # seed experiment
     seed_everything(seed=seed)
     # initialise pipeline
@@ -78,14 +86,6 @@ def main(
         pipeline=rtc_single_component_pipeline,
         results_getter=results_getter,
     )
-
-    data_name = data_config_pth.split("/")[-1].split(".")[0]
-    pipeline_name = pipeline_config_pth.split("/")[-1].split(".")[0]
-    save_loc = (
-        f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/{experiment_name}/"
-        f"single_component"
-    )
-    os.makedirs(save_loc, exist_ok=True)
 
     with open(f"{save_loc}/{model_key}.json", "w") as save_file:
         json.dump(test_results, save_file)

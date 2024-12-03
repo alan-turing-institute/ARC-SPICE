@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -25,30 +26,56 @@ def main(experiment_config_path: str):
     )
     pipeline_config = open_yaml_path(pipeline_conf_dir)
     # Get jinja template
-    print(PROJECT_DIR / "src" / "arc_spice" / "configs")
     environment = Environment(
         loader=FileSystemLoader(PROJECT_DIR / "src" / "arc_spice" / "config")
     )
     template = environment.get_template("jobscript_template.sh")
-    for model in pipeline_config:
-        script_dict: dict = experiment_config["bask"]
-        seed = experiment_config["seed"][0]
-        script_dict.update(
+    # We don't want to overwrite results
+
+    for index, seed in enumerate(experiment_config["seed"]):
+        os.makedirs(
+            f"slurm_scripts/experiments/{experiment_name}/run_{index}", exist_ok=False
+        )
+        for model in pipeline_config:
+            model_script_dict: dict = experiment_config["bask"]
+            model_script_dict.update(
+                {
+                    "script_name": (
+                        "scripts/single_component_inference.py "
+                        f"{pipeline_conf_dir} {data_conf_dir} {seed}"
+                        f" {experiment_name} {model}"
+                    ),
+                    "job_name": f"{experiment_name}_{model}",
+                    "seed": seed,
+                }
+            )
+            model_train_script = template.render(model_script_dict)
+
+            with open(
+                f"slurm_scripts/experiments/{experiment_name}/run_{index}/{model}.sh",
+                "w",
+            ) as f:
+                f.write(model_train_script)
+
+        pipeline_script_dict: dict = experiment_config["bask"]
+        pipeline_script_dict.update(
             {
                 "script_name": (
-                    "scripts/single_component_inference.py "
+                    "scripts/pipeline_inference.py "
                     f"{pipeline_conf_dir} {data_conf_dir} {seed}"
-                    f" {experiment_name} {model}"
+                    f" {experiment_name}"
                 ),
-                "array_number": 0,
-                "job_name": f"{experiment_name}_{model}",
+                "job_name": f"{experiment_name}_full_pipeline",
                 "seed": seed,
             }
         )
-        train_script = template.render(script_dict)
+        pipeline_train_script = template.render(pipeline_script_dict)
 
-        with open(f"slurm_scripts/{model}_test.sh", "w") as f:
-            f.write(train_script)
+        with open(
+            f"slurm_scripts/experiments/{experiment_name}/run_{index}/full_pipeline.sh",
+            "w",
+        ) as f:
+            f.write(pipeline_train_script)
 
 
 if __name__ == "__main__":
