@@ -217,21 +217,40 @@ class RTCVariationalPipelineBase(ABC):
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
 
-    def recognise(self, inp) -> dict[str, str]:
+    def recognise(self, inp) -> dict[str, str | list[dict[str, str]]]:
         """
-        Function to perform OCR
+        Function to perform OCR.
 
         Args:
-            inp: input
+            inp: input dict with key 'ocr_data', containing dict,
+                    {
+                        'ocr_images': list[ocr images],
+                        'ocr_targets': list[ocr target words]
+                    }
 
         Returns:
-            dictionary of outputs
+            dictionary of outputs:
+                    {
+                        'full_output': [
+                            {
+                                'generated_text': generated text from ocr model (str),
+                                'target': original target text (str)
+                            }
+                        ],
+                        'output': pieced back together string (str)
+                    }
         """
-        # Until the OCR data is available
-        # This will need the below comment:
-        #       type: ignore[misc]
-        # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
-        return {"outputs": inp["source_text"]}
+        out = self.ocr(inp["ocr_data"]["ocr_images"])  # type: ignore[misc]
+        text = " ".join([itm[0]["generated_text"] for itm in out])
+        return {
+            "full_output": [
+                {"target": target, "generated_text": gen_text[0]["generated_text"]}
+                for target, gen_text in zip(
+                    inp["ocr_data"]["ocr_targets"], out, strict=True
+                )
+            ],
+            "output": text,
+        }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """
