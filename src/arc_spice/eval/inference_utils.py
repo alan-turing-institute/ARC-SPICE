@@ -8,8 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_utils import MultiHot
-from arc_spice.eval.classification_error import zero_one_loss_ceil
-from arc_spice.eval.translation_error import get_comet_model
+from arc_spice.eval.translation_error import conditional_probability, get_comet_model
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     RTCSingleComponentPipeline,
 )
@@ -21,9 +20,9 @@ RecognitionResults = namedtuple("RecognitionResults", ["confidence", "accuracy"]
 ClassificationResults = namedtuple(
     "ClassificationResults",
     [
+        "clean_scores",
         "mean_scores",
         "hamming_accuracy",
-        "zero_one_accuracy",
         "mean_predicted_entropy",
     ],
 )
@@ -31,6 +30,7 @@ TranslationResults = namedtuple(
     "TranslationResults",
     [
         "full_output",
+        "clean_conditional_probability",
         "comet_score",
         "weighted_semantic_density",
     ],
@@ -79,6 +79,10 @@ class ResultsGetter:
         source_text = test_row["target_text"]
         target_text = test_row["target_text"]
         clean_translation = clean_output["translation"]["full_output"]
+        probs: list[torch.Tensor] = clean_output["translation"]["probs"]
+        clean_cond_prob = [
+            conditional_probability(prob.squeeze()).detach().tolist() for prob in probs
+        ]
 
         # define error model inputs
         comet_inp = [
@@ -97,6 +101,7 @@ class ResultsGetter:
         return TranslationResults(
             comet_score=comet_output["scores"][0],
             full_output=clean_translation,
+            clean_conditional_probability=clean_cond_prob,
             weighted_semantic_density=var_output["translation"][
                 "weighted_semantic_density"
             ],
@@ -106,19 +111,19 @@ class ResultsGetter:
         self,
         test_row: dict[str, Any],
         var_output: dict[str, dict],
-        **kwargs,
+        clean_output: dict[str, dict],
     ):
         # ### CLASSIFICATION ###
         mean_scores: torch.Tensor = var_output["classification"]["mean_scores"]
+        clean_scores: torch.Tensor = clean_output["classification"]["scores"]
         preds = torch.round(mean_scores).tolist()
         labels = self.multihot(test_row["labels"])
         hamming_acc = hamming_loss(y_pred=preds, y_true=labels)
-        zero_one_acc = zero_one_loss_ceil(y_pred=preds, y_target=labels)
 
         return ClassificationResults(
             mean_scores=mean_scores.detach().tolist(),
+            clean_scores=clean_scores,
             hamming_accuracy=hamming_acc,
-            zero_one_accuracy=zero_one_acc,
             mean_predicted_entropy=torch.mean(
                 var_output["classification"]["predicted_entropy"]
             ).item(),
