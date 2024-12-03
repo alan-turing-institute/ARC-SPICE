@@ -32,7 +32,8 @@ def main(
         f"{OUTPUT_DIR}/inference_results/{data_name}/{pipeline_name}/"
         f"{experiment_name}/seed_{seed}/"
     )
-    os.makedirs(save_loc, exist_ok=False)
+    # This directory needs to exist for all 4 experiments
+    os.makedirs(save_loc, exist_ok=True)
     # seed experiment
     seed_everything(seed=seed)
     # initialise pipeline
