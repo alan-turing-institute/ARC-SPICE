@@ -66,13 +66,15 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     pipeline.recognise = MagicMock(return_value=dummy_recognise_output)
     pipeline.translate = MagicMock(return_value=dummy_translate_output)
-    pipeline.classify_topic = MagicMock(return_value=dummy_classification_output)
+    pipeline.classify_topic_zero_shot = MagicMock(
+        return_value=dummy_classification_output
+    )
 
     pipeline.clean_inference(dummy_data)
 
     pipeline.recognise.assert_called_with(dummy_data)
     pipeline.translate.assert_called_with("rec text")
-    pipeline.classify_topic.assert_called_with("translate text")
+    pipeline.classify_topic_zero_shot.assert_called_with("translate text")
 
 
 def test_single_component_inputs(dummy_data, dummy_metadata):
