@@ -45,7 +45,6 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     with patch(  # noqa: SIM117
         "arc_spice.variational_pipelines.RTC_variational_pipeline.pipeline",
-        return_value=None,
     ):
         with patch(
             (
