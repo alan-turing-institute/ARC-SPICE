@@ -8,6 +8,7 @@ from arc_spice.variational_pipelines.utils import (
     RTCVariationalPipelineBase,
     dropout_off,
     dropout_on,
+    set_classifier,
     set_dropout,
 )
 
@@ -38,11 +39,16 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         n_variational_runs=5,
         translation_batch_size=8,
     ) -> None:
-        super().__init__(n_variational_runs, translation_batch_size)
+        # are we doing zero-shot-classification?
+        if model_pars["classifier"]["specific_task"] == "zero-shot-classification":
+            self.zero_shot = True
+        else:
+            self.zero_shot = False
+        super().__init__(self.zero_shot, n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
-            model=model_pars["OCR"]["model"],
+            task=model_pars["ocr"]["specific_task"],
+            model=model_pars["ocr"]["model"],
             device=self.device,
         )
         self.translator = pipeline(
@@ -52,18 +58,9 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
             pipeline_class=CustomTranslationPipeline,
             device=self.device,
         )
-        self.classifier = pipeline(
-            task=model_pars["classifier"]["specific_task"],
-            model=model_pars["classifier"]["model"],
-            multi_label=True,
-            device=self.device,
-        )
-        # topic description labels for the classifier
-        self.topic_labels = [
-            class_names_dict["en"]
-            for class_names_dict in data_pars["class_descriptors"]
-        ]
-
+        self.classifier = set_classifier(model_pars["classifier"], self.device)
+        # topic meta_data for the classifier
+        self.dataset_meta_data = data_pars
         self._init_semantic_density()
         self._init_pipeline_map()
 
@@ -83,9 +80,15 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         clean_output["translation"] = self.translate(
             clean_output["recognition"]["outputs"]
         )
-        clean_output["classification"] = self.classify_topic(
-            clean_output["translation"]["outputs"][0]
-        )
+        # we now need to pass the input correct to the correct forward method
+        if self.zero_shot:
+            clean_output["classification"] = self.classify_topic_zero_shot(
+                clean_output["translation"]["outputs"][0]
+            )
+        else:
+            clean_output["classification"] = self.classify_topic(
+                clean_output["translation"]["outputs"][0]
+            )
         return clean_output
 
     def variational_inference(self, x: torch.Tensor) -> tuple[dict, dict]:
@@ -110,7 +113,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         # for each model in pipeline
         for model_key, pl in self.pipeline_map.items():
             # turn on dropout for this model
-            set_dropout(model=pl.model, dropout_flag=True)  # type: ignore[union-attr]
+            set_dropout(model=pl.model, dropout_flag=True)  # type: ignore[union-attr,attr-defined]
             torch.nn.functional.dropout = dropout_on
             # do n runs of the inference
             for run_idx in range(self.n_variational_runs):
@@ -118,7 +121,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
                     input_map[model_key]
                 )
             # turn off dropout for this model
-            set_dropout(model=pl.model, dropout_flag=False)  # type: ignore[union-attr]
+            set_dropout(model=pl.model, dropout_flag=False)  # type: ignore[union-attr,attr-defined]
             torch.nn.functional.dropout = dropout_off
 
         # run metric helper functions

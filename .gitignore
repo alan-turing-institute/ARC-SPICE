@@ -160,6 +160,7 @@ Thumbs.db
 
 
 slurm_scripts/slurm_logs*
+slurm_scripts/experiments*
 # other
 temp
 .vscode
