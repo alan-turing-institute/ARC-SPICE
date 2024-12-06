@@ -174,4 +174,3 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
         # topic description labels for the classifier
         self.dataset_meta_data = data_pars
         self._init_pipeline_map()
-        self._init_pipeline_map()
