@@ -67,6 +67,7 @@ def extract_articles(
 
 def _make_ocr_data(text: str) -> list[tuple[Image.Image, str]]:
     text_split = text.split()
+    text_split = [text for text in text_split if text != "" and text != " "]
     generator = GeneratorFromStrings(text_split, count=len(text_split))
     return list(generator)
 
