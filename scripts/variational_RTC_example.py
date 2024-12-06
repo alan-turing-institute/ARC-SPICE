@@ -88,7 +88,7 @@ def main(rtc_pars):
     rtc_variational_pipeline = RTCVariationalPipeline(rtc_pars, metadata_params)
 
     # check dropout exists
-    rtc_variational_pipeline.check_dropout()
+    rtc_variational_pipeline.check_dropout(rtc_variational_pipeline.pipeline_map)
 
     # perform variational inference
     clean_output, var_output = rtc_variational_pipeline.variational_inference(test_row)
