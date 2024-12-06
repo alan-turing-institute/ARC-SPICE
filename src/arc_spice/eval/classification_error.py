@@ -1,7 +1,4 @@
-import math
-
 import torch
-from sklearn.metrics import zero_one_loss
 
 
 def aggregate_score(probs: torch.Tensor) -> torch.Tensor:
@@ -9,10 +6,6 @@ def aggregate_score(probs: torch.Tensor) -> torch.Tensor:
     preds = torch.round(probs).float()
     distance = torch.abs(preds - probs)
     return 1 - torch.mean(distance)
-
-
-def zero_one_loss_ceil(y_target, y_pred):
-    return math.ceil(zero_one_loss(y_target, y_pred, normalize=True))
 
 
 def MC_dropout_scores(

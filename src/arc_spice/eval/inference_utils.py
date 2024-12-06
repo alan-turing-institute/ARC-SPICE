@@ -17,15 +17,7 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 )
 
 RecognitionResults = namedtuple("RecognitionResults", ["confidence", "accuracy"])
-ClassificationResults = namedtuple(
-    "ClassificationResults",
-    [
-        "clean_scores",
-        "mean_scores",
-        "hamming_accuracy",
-        "mean_predicted_entropy",
-    ],
-)
+
 TranslationResults = namedtuple(
     "TranslationResults",
     [
@@ -33,6 +25,18 @@ TranslationResults = namedtuple(
         "clean_conditional_probability",
         "comet_score",
         "weighted_semantic_density",
+        "mean_entropy",
+        "sequence_lengths",
+    ],
+)
+
+ClassificationResults = namedtuple(
+    "ClassificationResults",
+    [
+        "clean_scores",
+        "mean_scores",
+        "hamming_accuracy",
+        "mean_predicted_entropy",
     ],
 )
 
@@ -79,6 +83,8 @@ class ResultsGetter:
         source_text = test_row["target_text"]
         target_text = test_row["target_text"]
         clean_translation = clean_output["translation"]["full_output"]
+        clean_entropy: torch.Tensor = clean_output["translation"]["mean_entropy"]
+        seq_lens: torch.Tensor = var_output["translation"]["sequence_length"]
         probs: list[torch.Tensor] = clean_output["translation"]["probs"]
         clean_cond_prob = [
             conditional_probability(prob.squeeze()).detach().tolist() for prob in probs
@@ -102,6 +108,8 @@ class ResultsGetter:
             comet_score=comet_output["scores"][0],
             full_output=clean_translation,
             clean_conditional_probability=clean_cond_prob,
+            mean_entropy=clean_entropy,
+            sequence_lengths=seq_lens,
             weighted_semantic_density=var_output["translation"][
                 "weighted_semantic_density"
             ],
@@ -144,4 +152,5 @@ def run_inference(
             test_row=inp,
         )
         results.append({inp["celex_id"]: row_results_dict})
+        break
     return results

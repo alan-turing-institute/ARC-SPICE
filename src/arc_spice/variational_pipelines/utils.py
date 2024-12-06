@@ -1,11 +1,18 @@
+import copy
 import logging
+import math
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any
 
 import torch
 from torch.nn.functional import softmax
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Pipeline
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Pipeline,
+    TranslationPipeline,
+)
 
 logger = logging.Logger("RTC_variational_pipeline")
 
@@ -117,6 +124,7 @@ class RTCVariationalPipelineBase(ABC):
                 "full_output",
                 "outputs",
                 "probs",
+                "mean_entropy",
             ],
             "classification": [
                 "scores",
@@ -264,6 +272,9 @@ class RTCVariationalPipelineBase(ABC):
             {
                 "outputs": translator_output["translation_text"],
                 "probs": translator_output["raw_outputs"]["scores"],
+                "mean_entropy": torch.mean(translator_output["raw_outputs"]["entropy"])
+                .detach()
+                .tolist(),
             }
             for translator_output in translator_outputs
         ]
@@ -430,6 +441,7 @@ class RTCVariationalPipelineBase(ABC):
             {
                 "semantic_densities": densities,
                 "weighted_semantic_density": weighted_average.item(),
+                "sequence_length": sequence_lengths,
             }
         )
 
@@ -480,3 +492,63 @@ class RTCVariationalPipelineBase(ABC):
             }
         )
         return var_output
+
+
+# Translation pipeline with additional functionality to save logits from fwd pass
+class CustomTranslationPipeline(TranslationPipeline):
+    """
+    custom translation pipeline to return the logits with the generated text. Largely
+    the same as the pytorch version with some additional arguments passed to the
+    `generate` method.
+    """
+
+    def postprocess(
+        self,
+        model_outputs: dict,
+        **postprocess_params,
+    ):
+        # model_outputs gets overwritten in the super().postprocess call
+        # make a copy here so we retain the information we want
+        raw_out = copy.deepcopy(model_outputs)
+        processed = super().postprocess(model_outputs, **postprocess_params)
+
+        return {
+            "translation_text": processed[0]["translation_text"],
+            "raw_outputs": raw_out,
+        }
+
+    def _forward(self, model_inputs, **generate_kwargs):
+        if self.framework == "pt":
+            in_b, input_length = model_inputs["input_ids"].shape
+        elif self.framework == "tf":
+            raise NotImplementedError
+
+        self.check_inputs(
+            input_length,
+            generate_kwargs.get("min_length", self.model.config.min_length),
+            generate_kwargs.get("max_length", self.model.config.max_length),
+        )
+        out = self.model.generate(**model_inputs, **generate_kwargs)
+        output_ids = out["sequences"]
+        out_b = output_ids.shape[0]
+        if self.framework == "pt":
+            output_ids = output_ids.reshape(in_b, out_b // in_b, *output_ids.shape[1:])
+        elif self.framework == "tf":
+            raise NotImplementedError
+
+        # logits are a tuple of length output_ids[-1]-1
+        # each element is a tensor of shape (batch_size, vocab_size)
+        logits = torch.stack(out["logits"], dim=1)
+        # get softmax of the logits to get token probabilities
+        softmax_logits = softmax(logits, dim=-1)
+        vocab_size = softmax_logits.shape[-1]
+        normalised_entropy = torch.distributions.Categorical(
+            probs=softmax_logits
+        ).entropy() / math.log(vocab_size)
+        max_token_scores = torch.max(softmax_logits, dim=-1).values
+
+        return {
+            "output_ids": output_ids,
+            "scores": max_token_scores,
+            "entropy": normalised_entropy,
+        }
