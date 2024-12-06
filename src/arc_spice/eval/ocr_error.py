@@ -21,6 +21,7 @@ def ocr_error(ocr_output: dict[Any, Any]) -> float:
                             {
                                 'generated_text': gen text from the ocr model (str)
                                 'target': target text (str)
+                                'entropies': entropies for UQ (torch.Tensor)
                             }
                         ]
                         'outpu': pieced back together full string (str)

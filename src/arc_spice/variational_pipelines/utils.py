@@ -519,8 +519,8 @@ class RTCVariationalPipelineBase(ABC):
         # Adapted for variational methods from: https://arxiv.org/pdf/2412.01221
         stacked_entropies = torch.stack(
             [
-                output["entropies"]
-                for output in var_output["recognition"]["full_output"]
+                [data["entropies"] for data in output["full_output"]]
+                for output in var_output["recognition"]
             ],
             dim=1,
         )

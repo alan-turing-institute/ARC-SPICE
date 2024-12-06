@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_utils import MultiHot
+from arc_spice.eval.ocr_error import ocr_error
 from arc_spice.eval.translation_error import get_comet_model
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     RTCSingleComponentPipeline,
@@ -63,10 +64,16 @@ class ResultsGetter:
             )._asdict()
         return results_dict
 
-    def recognition_results(self, *args, **kwargs):
+    def recognition_results(
+        self,
+        clean_output: dict[str, str | list[dict[str, str | torch.Tensor]]],
+        var_output: dict[str, dict],
+        **kwargs,
+    ):
         # ### RECOGNITION ###
-        # TODO: add this into results_getter : issue #14
-        return RecognitionResults(confidence=None, accuracy=None)
+        charerror = ocr_error(clean_output)
+        confidence = var_output["recognition"]["mean_entropy"]
+        return RecognitionResults(confidence=confidence, accuracy=charerror)
 
     def translation_results(
         self,

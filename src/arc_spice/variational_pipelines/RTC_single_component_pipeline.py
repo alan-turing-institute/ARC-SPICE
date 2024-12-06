@@ -112,7 +112,7 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
             step_name="recognition",
             input_key="ocr_data",
             forward_function=self.recognise,
-            confidence_function=self.recognise,  # THIS WILL NEED UPDATING : #issue 14
+            confidence_function=self.get_ocr_confidence,
             n_variational_runs=n_variational_runs,
             **kwargs,
         )
