@@ -36,7 +36,7 @@ ClassificationResults = namedtuple(
     [
         "clean_scores",
         "mean_scores",
-        "hamming_accuracy",
+        "hamming_loss",
         "mean_predicted_entropy",
     ],
 )
@@ -133,12 +133,12 @@ class ResultsGetter:
         clean_scores: torch.Tensor = clean_output["classification"]["scores"]
         preds = torch.round(mean_scores).tolist()
         labels = self.multihot(test_row["labels"])
-        hamming_acc = hamming_loss(y_pred=preds, y_true=labels)
+        hmng_loss = hamming_loss(y_pred=preds, y_true=labels)
 
         return ClassificationResults(
             mean_scores=mean_scores.detach().tolist(),
+            hamming_loss=hmng_loss,
             clean_scores=clean_scores,
-            hamming_accuracy=hamming_acc,
             mean_predicted_entropy=torch.mean(
                 var_output["classification"]["predicted_entropy"]
             ).item(),

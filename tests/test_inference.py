@@ -45,20 +45,22 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     with patch(  # noqa: SIM117
         "arc_spice.variational_pipelines.RTC_variational_pipeline.pipeline",
-        return_value=None,
     ):
         with patch(
-            (
-                "arc_spice.variational_pipelines.RTC_variational_pipeline."
-                "RTCVariationalPipeline._init_semantic_density"
-            ),
-            return_value=None,
+            "arc_spice.variational_pipelines.utils.pipeline",
         ):
-            pipeline = RTCVariationalPipeline(
-                model_pars=pipeline_config,
-                data_pars=dummy_metadata,
-                translation_batch_size=1,
-            )
+            with patch(
+                (
+                    "arc_spice.variational_pipelines.RTC_variational_pipeline."
+                    "RTCVariationalPipeline._init_semantic_density"
+                ),
+                return_value=None,
+            ):
+                pipeline = RTCVariationalPipeline(
+                    model_pars=pipeline_config,
+                    data_pars=dummy_metadata,
+                    translation_batch_size=1,
+                )
 
     dummy_recognise_output = {"outputs": "rec text"}
     dummy_translate_output = {"outputs": ["translate text"]}
@@ -66,13 +68,15 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     pipeline.recognise = MagicMock(return_value=dummy_recognise_output)
     pipeline.translate = MagicMock(return_value=dummy_translate_output)
-    pipeline.classify_topic = MagicMock(return_value=dummy_classification_output)
+    pipeline.classify_topic_zero_shot = MagicMock(
+        return_value=dummy_classification_output
+    )
 
     pipeline.clean_inference(dummy_data)
 
     pipeline.recognise.assert_called_with(dummy_data)
     pipeline.translate.assert_called_with("rec text")
-    pipeline.classify_topic.assert_called_with("translate text")
+    pipeline.classify_topic_zero_shot.assert_called_with("translate text")
 
 
 def test_single_component_inputs(dummy_data, dummy_metadata):
@@ -85,23 +89,26 @@ def test_single_component_inputs(dummy_data, dummy_metadata):
         "arc_spice.variational_pipelines.RTC_single_component_pipeline.pipeline"
     ):
         with patch(
-            (
-                "arc_spice.variational_pipelines.RTC_single_component_pipeline."
-                "RTCSingleComponentPipeline._init_semantic_density"
-            ),
-            return_value=None,
+            "arc_spice.variational_pipelines.utils.pipeline",
         ):
-            recognise_pipeline = RecognitionVariationalPipeline(
-                model_pars=pipeline_config,
-            )
-            translate_pipeline = TranslationVariationalPipeline(
-                model_pars=pipeline_config,
-                translation_batch_size=1,
-            )
-            classify_pipeline = ClassificationVariationalPipeline(
-                model_pars=pipeline_config,
-                data_pars=dummy_metadata,
-            )
+            with patch(
+                (
+                    "arc_spice.variational_pipelines.RTC_single_component_pipeline."
+                    "RTCSingleComponentPipeline._init_semantic_density"
+                ),
+                return_value=None,
+            ):
+                recognise_pipeline = RecognitionVariationalPipeline(
+                    model_pars=pipeline_config,
+                )
+                translate_pipeline = TranslationVariationalPipeline(
+                    model_pars=pipeline_config,
+                    translation_batch_size=1,
+                )
+                classify_pipeline = ClassificationVariationalPipeline(
+                    model_pars=pipeline_config,
+                    data_pars=dummy_metadata,
+                )
 
     recognise_pipeline.forward_function = MagicMock(return_value=dummy_recognise_output)
     translate_pipeline.forward_function = MagicMock(return_value=dummy_translate_output)

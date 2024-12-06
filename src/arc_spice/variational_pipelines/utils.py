@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import transformers
 from torch.distributions import Categorical
 from torch.nn.functional import softmax
 from transformers import (
@@ -15,9 +16,44 @@ from transformers import (
     ImageToTextPipeline,
     Pipeline,
     TranslationPipeline,
+    pipeline,
 )
 
 logger = logging.Logger("RTC_variational_pipeline")
+
+# Some methods for the
+
+
+def collate_scores(
+    scores: list[dict[str, float]], label_order
+) -> dict[str, list | dict]:
+    # these need to be returned in original order
+    # return dict for to guarantee class predictions can be recovered
+    collated = {score["label"]: score["score"] for score in scores}
+    return {
+        "scores": [collated[label] for label in label_order],
+        "score_dict": collated,
+    }
+
+
+def set_classifier(classifier_pars: dict, device: str) -> transformers.Pipeline:
+    # new helper function which given the classifier parameters sets the correct
+    # pipeline method. This is needed because they take different kwargs
+    # > THIS COULD BE REFACTORED BY PUTTING KWARGS IN THE CONFIG <
+    if classifier_pars["specific_task"] == "zero-shot-classification":
+        return pipeline(
+            task=classifier_pars["specific_task"],
+            model=classifier_pars["model"],
+            multi_label=True,
+            device=device,
+            **classifier_pars.get("kwargs", {}),
+        )
+    return pipeline(
+        task=classifier_pars["specific_task"],
+        model=classifier_pars["model"],
+        device=device,
+        **classifier_pars.get("kwargs", {}),
+    )
 
 
 def set_dropout(model: torch.nn.Module, dropout_flag: bool) -> None:
@@ -107,7 +143,7 @@ class RTCVariationalPipelineBase(ABC):
     def variational_inference(self, x):
         pass
 
-    def __init__(self, n_variational_runs=5, translation_batch_size=8):
+    def __init__(self, zero_shot: bool, n_variational_runs=5, translation_batch_size=8):
         # device for inference
         self.set_device()
         debug_msg_device = f"Loading pipeline on device: {self.device}"
@@ -116,7 +152,9 @@ class RTCVariationalPipelineBase(ABC):
         self.func_map = {
             "recognition": self.recognise,
             "translation": self.translate,
-            "classification": self.classify_topic,
+            "classification": (
+                self.classify_topic_zero_shot if zero_shot else self.classify_topic
+            ),
         }
         # the naive outputs of the pipeline stages calculated in self.clean_inference
         self.naive_outputs = {
@@ -142,8 +180,10 @@ class RTCVariationalPipelineBase(ABC):
         self.classifier = None
 
         # map pipeline names to their pipeline counterparts
-
-        self.topic_labels = None  # This should be defined in subclass if needed
+        # to replace class descriptors, we now want class descriptors and the labels
+        self.dataset_meta_data: dict = {
+            None: None
+        }  # This should be defined in subclass if needed
 
     def _init_pipeline_map(self):
         """
@@ -196,7 +236,8 @@ class RTCVariationalPipelineBase(ABC):
             split_rows = split_rows[:-1]
         return [split + split_key for split in split_rows]
 
-    def check_dropout(self):
+    @staticmethod
+    def check_dropout(pipeline_map: transformers.Pipeline):
         """
         Checks the existence of dropout layers in the models of the pipeline.
 
@@ -204,7 +245,7 @@ class RTCVariationalPipelineBase(ABC):
             ValueError: Raised when no dropout layers are found.
         """
         logger.debug("\n\n------------------ Testing Dropout --------------------")
-        for model_key, pl in self.pipeline_map.items():
+        for model_key, pl in pipeline_map.items():
             # only test models that exist
             if pl is None:
                 pipeline_none_msg_key = (
@@ -314,15 +355,39 @@ class RTCVariationalPipelineBase(ABC):
         # {full translation, sentence translations, logits, semantic embeddings}
         return outputs
 
-    def classify_topic(self, text: str) -> dict[str, str]:
+    def classify_topic(self, text: str) -> dict[str, list[float] | dict]:
         """
         Runs the classification model
 
         Returns:
-            Dictionary of classification outputs, namely the output scores.
+            Dictionary of classification outputs, namely the output scores and
+            label:score dictionary.
         """
-        forward = self.classifier(text, self.topic_labels)  # type: ignore[misc]
-        return {"scores": forward["scores"]}
+        forward = self.classifier(text, top_k=None)  # type: ignore[misc]
+        return collate_scores(forward, self.dataset_meta_data["class_labels"])  # type: ignore[index]
+
+    def classify_topic_zero_shot(self, text: str) -> dict[str, list[float] | dict]:
+        """
+        Runs the zero-shot classification model
+
+        Returns:
+            Dictionary of classification outputs, namely the output scores and
+            label:score dictionary.
+        """
+        labels = [
+            descriptors["en"]
+            for descriptors in self.dataset_meta_data["class_descriptors"]  # type: ignore[index]
+        ]
+        forward = self.classifier(text, labels)  # type: ignore[misc]
+        return collate_scores(
+            [
+                {"label": label, "score": score}
+                for label, score in zip(
+                    forward["labels"], forward["scores"], strict=True
+                )
+            ],
+            label_order=labels,
+        )
 
     def stack_translator_sentence_metrics(
         self, all_sentence_metrics: list[dict[str, Any]]

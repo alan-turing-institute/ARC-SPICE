@@ -1,6 +1,7 @@
 from typing import Any
 
 import torch
+import transformers
 from transformers import pipeline
 
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
@@ -11,6 +12,7 @@ from arc_spice.variational_pipelines.utils import (
     CustomTranslationPipeline,
     dropout_off,
     dropout_on,
+    set_classifier,
     set_dropout,
 )
 
@@ -90,8 +92,8 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
         **kwargs,
     ):
         self.set_device()
-        self.ocr = pipeline(
-            model=model_pars["OCR"]["model"],
+        self.ocr: transformers.Pipeline = pipeline(
+            model=model_pars["ocr"]["model"],
             device=self.device,
             pipeline_class=CustomOCRPipeline,
             max_new_tokens=20,
@@ -129,7 +131,7 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
             n_variational_runs=n_variational_runs,
             translation_batch_size=translation_batch_size,
         )
-        self.translator = pipeline(
+        self.translator: transformers.Pipeline = pipeline(
             task=model_pars["translator"]["specific_task"],
             model=model_pars["translator"]["model"],
             max_length=512,
@@ -155,25 +157,24 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
         n_variational_runs=5,
         **kwargs,
     ):
-        self.set_device()
+        if model_pars["classifier"]["specific_task"] == "zero-shot-classification":
+            zero_shot = True
+        else:
+            zero_shot = False
         super().__init__(
             step_name="classification",
             input_key="target_text",
-            forward_function=self.classify_topic,
+            forward_function=(
+                self.classify_topic_zero_shot if zero_shot else self.classify_topic
+            ),
             confidence_function=self.get_classification_confidence,
             n_variational_runs=n_variational_runs,
             **kwargs,
         )
-        self.classifier = pipeline(
-            task=model_pars["classifier"]["specific_task"],
-            model=model_pars["classifier"]["model"],
-            multi_label=True,
-            device=self.device,
+        self.classifier: transformers.Pipeline = set_classifier(
+            model_pars["classifier"], self.device
         )
         self.model = self.classifier.model
         # topic description labels for the classifier
-        self.topic_labels = [
-            class_names_dict["en"]
-            for class_names_dict in data_pars["class_descriptors"]
-        ]
+        self.dataset_meta_data = data_pars
         self._init_pipeline_map()
