@@ -1,10 +1,10 @@
-import copy
 from typing import Any
 
 import torch
-from transformers import TranslationPipeline, pipeline
+from transformers import pipeline
 
 from arc_spice.variational_pipelines.utils import (
+    CustomTranslationPipeline,
     RTCVariationalPipelineBase,
     dropout_off,
     dropout_on,
@@ -36,13 +36,13 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         model_pars: dict[str, dict[str, str]],
         data_pars: dict[str, Any],
         n_variational_runs=5,
-        translation_batch_size=8,
+        translation_batch_size=16,
     ) -> None:
         super().__init__(n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
-            model=model_pars["OCR"]["model"],
+            task=model_pars["ocr"]["specific_task"],
+            model=model_pars["ocr"]["model"],
             device=self.device,
         )
         self.translator = pipeline(
@@ -133,52 +133,3 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
     # on standard call return the clean output
     def __call__(self, x):
         return self.clean_inference(x)
-
-
-# Translation pipeline with additional functionality to save logits from fwd pass
-class CustomTranslationPipeline(TranslationPipeline):
-    """
-    custom translation pipeline to return the logits with the generated text. Largely
-    the same as the pytorch version with some additional arguments passed to the
-    `generate` method.
-    """
-
-    def postprocess(
-        self,
-        model_outputs: dict,
-        **postprocess_params,
-    ):
-        # model_outputs gets overwritten in the super().postprocess call
-        # make a copy here so we retain the information we want
-        raw_out = copy.deepcopy(model_outputs)
-        processed = super().postprocess(model_outputs, **postprocess_params)
-
-        return {
-            "translation_text": processed[0]["translation_text"],
-            "raw_outputs": raw_out,
-        }
-
-    def _forward(self, model_inputs, **generate_kwargs):
-        if self.framework == "pt":
-            in_b, input_length = model_inputs["input_ids"].shape
-        elif self.framework == "tf":
-            raise NotImplementedError
-
-        self.check_inputs(
-            input_length,
-            generate_kwargs.get("min_length", self.model.config.min_length),
-            generate_kwargs.get("max_length", self.model.config.max_length),
-        )
-        out = self.model.generate(**model_inputs, **generate_kwargs)
-        output_ids = out["sequences"]
-        out_b = output_ids.shape[0]
-        if self.framework == "pt":
-            output_ids = output_ids.reshape(in_b, out_b // in_b, *output_ids.shape[1:])
-        elif self.framework == "tf":
-            raise NotImplementedError
-
-        # logits are a tuple of length output_ids[-1]-1
-        # each element is a tensor of shape (batch_size, vocab_size)
-        logits = torch.stack(out["logits"], dim=1)
-
-        return {"output_ids": output_ids, "logits": logits}

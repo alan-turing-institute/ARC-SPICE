@@ -133,6 +133,7 @@ def load_multieurlex(
     level: int,
     languages: list[str],
     drop_empty: bool = True,
+    drop_length: int | None = None,
     split: str | None = None,
 ) -> tuple[datasets.DatasetDict, dict[str, Any]]:
     """
@@ -188,6 +189,11 @@ def load_multieurlex(
                 lambda x: all(x is not None for x in x["text"].values())
             )
 
+    if drop_length:
+        dataset_dict = dataset_dict.filter(
+            lambda x: len(x["text"][languages[0]]) <= drop_length
+        )
+
     # return datasets and metadata
     return dataset_dict, metadata
 
@@ -197,11 +203,16 @@ def load_multieurlex_for_pipeline(
     level: int,
     lang_pair: dict[str, str],
     drop_empty: bool = True,
+    drop_length: int | None = None,
     load_ocr_data: bool = False,
 ) -> tuple[datasets.DatasetDict, dict[str, Any]]:
     langs = [lang_pair["source"], lang_pair["target"]]
     dataset_dict, meta_data = load_multieurlex(
-        data_dir=data_dir, level=level, languages=langs, drop_empty=drop_empty
+        data_dir=data_dir,
+        level=level,
+        languages=langs,
+        drop_empty=drop_empty,
+        drop_length=drop_length,
     )
     # instantiate the preprocessor
     preprocesser = TranslationPreProcesser(lang_pair)
