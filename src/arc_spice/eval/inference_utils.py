@@ -3,12 +3,12 @@ from collections.abc import Callable
 from typing import Any
 
 import torch
-from sklearn.metrics import hamming_loss, zero_one_loss
+from sklearn.metrics import hamming_loss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from arc_spice.data.multieurlex_utils import MultiHot
-from arc_spice.eval.translation_error import get_comet_model
+from arc_spice.eval.translation_error import conditional_probability, get_comet_model
 from arc_spice.variational_pipelines.RTC_single_component_pipeline import (
     RTCSingleComponentPipeline,
 )
@@ -17,21 +17,26 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 )
 
 RecognitionResults = namedtuple("RecognitionResults", ["confidence", "accuracy"])
-ClassificationResults = namedtuple(
-    "ClassificationResults",
-    [
-        "mean_scores",
-        "hamming_loss",
-        "zero_one_accuracy",
-        "mean_predicted_entropy",
-    ],
-)
+
 TranslationResults = namedtuple(
     "TranslationResults",
     [
         "full_output",
+        "clean_conditional_probability",
         "comet_score",
         "weighted_semantic_density",
+        "mean_entropy",
+        "sequence_lengths",
+    ],
+)
+
+ClassificationResults = namedtuple(
+    "ClassificationResults",
+    [
+        "clean_scores",
+        "mean_scores",
+        "hamming_loss",
+        "mean_predicted_entropy",
     ],
 )
 
@@ -78,6 +83,12 @@ class ResultsGetter:
         source_text = test_row["target_text"]
         target_text = test_row["target_text"]
         clean_translation = clean_output["translation"]["full_output"]
+        clean_entropy: torch.Tensor = clean_output["translation"]["mean_entropy"]
+        seq_lens: torch.Tensor = var_output["translation"]["sequence_length"]
+        probs: list[torch.Tensor] = clean_output["translation"]["probs"]
+        clean_cond_prob = [
+            conditional_probability(prob.squeeze()).detach().tolist() for prob in probs
+        ]
 
         # define error model inputs
         comet_inp = [
@@ -96,6 +107,9 @@ class ResultsGetter:
         return TranslationResults(
             comet_score=comet_output["scores"][0],
             full_output=clean_translation,
+            clean_conditional_probability=clean_cond_prob,
+            mean_entropy=clean_entropy,
+            sequence_lengths=seq_lens,
             weighted_semantic_density=var_output["translation"][
                 "weighted_semantic_density"
             ],
@@ -105,19 +119,19 @@ class ResultsGetter:
         self,
         test_row: dict[str, Any],
         var_output: dict[str, dict],
-        **kwargs,
+        clean_output: dict[str, dict],
     ):
         # ### CLASSIFICATION ###
         mean_scores: torch.Tensor = var_output["classification"]["mean_scores"]
+        clean_scores: torch.Tensor = clean_output["classification"]["scores"]
         preds = torch.round(mean_scores).tolist()
         labels = self.multihot(test_row["labels"])
         hmng_loss = hamming_loss(y_pred=preds, y_true=labels)
-        zero_one_acc = zero_one_loss(y_pred=preds, y_true=labels)
 
         return ClassificationResults(
             mean_scores=mean_scores.detach().tolist(),
             hamming_loss=hmng_loss,
-            zero_one_accuracy=zero_one_acc,
+            clean_scores=clean_scores,
             mean_predicted_entropy=torch.mean(
                 var_output["classification"]["predicted_entropy"]
             ).item(),
@@ -138,4 +152,5 @@ def run_inference(
             test_row=inp,
         )
         results.append({inp["celex_id"]: row_results_dict})
+        break
     return results
