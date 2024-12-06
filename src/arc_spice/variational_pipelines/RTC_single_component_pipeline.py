@@ -111,7 +111,7 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
         self,
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
-        translation_batch_size=4,
+        translation_batch_size=8,
         **kwargs,
     ):
         self.set_device()

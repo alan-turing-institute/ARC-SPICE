@@ -466,14 +466,23 @@ class RTCVariationalPipelineBase(ABC):
         # calculate mean predictions
         means = torch.mean(stacked_probs, dim=-1)
         # predictive entropy for each class
-        pred_entropies = -1 * (
-            means * torch.log(means + epsilon)
-            + (1 - means) * torch.log((1 - means) + epsilon)
+        # binary classification so normalise w/ log(2)
+        pred_entropies = (
+            -1
+            * (
+                means * torch.log(means + epsilon)
+                + (1 - means) * torch.log((1 - means) + epsilon)
+            )
+            / math.log(2)
         )
         # individual entropies
-        all_entropies = -1 * (
-            stacked_probs * torch.log(stacked_probs + epsilon)
-            + (1 - stacked_probs) * torch.log((1 - stacked_probs) + epsilon)
+        all_entropies = (
+            -1
+            * (
+                stacked_probs * torch.log(stacked_probs + epsilon)
+                + (1 - stacked_probs) * torch.log((1 - stacked_probs) + epsilon)
+            )
+            / math.log(2)
         )
         # mutual information is difference between the predicted entropy and mean of the
         # entropies
