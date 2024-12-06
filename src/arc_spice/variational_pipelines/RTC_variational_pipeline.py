@@ -49,7 +49,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         super().__init__(self.zero_shot, n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            model=model_pars["OCR"]["model"],
+            model=model_pars["ocr"]["model"],
             device=self.device,
             pipeline_class=CustomOCRPipeline,
             max_new_tokens=20,
