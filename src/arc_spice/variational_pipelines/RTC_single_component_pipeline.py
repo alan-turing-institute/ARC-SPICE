@@ -4,11 +4,15 @@ import torch
 from transformers import pipeline
 
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
-    CustomOCRPipeline,
-    CustomTranslationPipeline,
     RTCVariationalPipelineBase,
 )
-from arc_spice.variational_pipelines.utils import dropout_off, dropout_on, set_dropout
+from arc_spice.variational_pipelines.utils import (
+    CustomOCRPipeline,
+    CustomTranslationPipeline,
+    dropout_off,
+    dropout_on,
+    set_dropout,
+)
 
 
 class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
@@ -35,19 +39,6 @@ class RTCSingleComponentPipeline(RTCVariationalPipelineBase):
         # define objects that are needed and nothing else
         # naive outputs can remain the same, though only the appropriate outputs will
         # be outputted
-        self.naive_outputs = {
-            "recognition": [
-                "outputs",
-            ],
-            "translation": [
-                "full_output",
-                "outputs",
-                "probs",
-            ],
-            "classification": [
-                "scores",
-            ],
-        }
         self.step_name = step_name
         self.input_key = input_key
         self.forward_function = forward_function
@@ -124,7 +115,7 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
         self,
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
-        translation_batch_size=8,
+        translation_batch_size=4,
         **kwargs,
     ):
         self.set_device()

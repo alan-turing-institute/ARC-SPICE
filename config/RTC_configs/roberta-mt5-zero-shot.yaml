@@ -1,4 +1,4 @@
-OCR:
+ocr:
   specific_task: "image-to-text"
   model: "microsoft/trocr-base-handwritten"
 

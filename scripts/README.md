@@ -106,3 +106,30 @@ It's called like so e.g. from project root:
 ```bash
 python scripts/pipeline_inference.py [pipeline_config_path] [data_config_path] translator
 ```
+
+## gen_jobscripts.py
+
+Create jobscript `.sh` files for an experiment, which in this case refers to a `data_config` and `pipeline_config` combo.
+It takes a single argument which is `experiment_config_path`. This refers to a file path to a `.yaml` file structured as below:
+
+### eg. Experiment config:
+
+```yaml
+data_config: l1_fr_to_en
+
+pipeline_config: roberta-mt5-zero-shot
+
+seed:
+  - 42
+  - 43
+  - 44
+
+bask:
+  jobname: "full_experiment_with_zero_shot"
+  walltime: '0-24:0:0'
+  gpu_number: 1
+  node_number: 1
+  hf_cache_dir: "/bask/projects/v/vjgo8416-spice/hf_cache"
+
+
+```
