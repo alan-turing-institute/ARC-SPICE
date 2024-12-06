@@ -4,6 +4,7 @@ import torch
 from transformers import pipeline
 
 from arc_spice.variational_pipelines.RTC_variational_pipeline import (
+    CustomOCRPipeline,
     CustomTranslationPipeline,
     RTCVariationalPipelineBase,
 )
@@ -94,13 +95,16 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
         self,
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
+        ocr_batch_size=64,
         **kwargs,
     ):
         self.set_device()
         self.ocr = pipeline(
-            task=model_pars["OCR"]["specific_task"],
             model=model_pars["OCR"]["model"],
             device=self.device,
+            pipeline_class=CustomOCRPipeline,
+            max_new_tokens=20,
+            batch_size=ocr_batch_size,
             **kwargs,
         )
         self.model = self.ocr.model

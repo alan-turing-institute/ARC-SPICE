@@ -1,8 +1,10 @@
 import copy
 from typing import Any
 
+import numpy as np
 import torch
-from transformers import TranslationPipeline, pipeline
+from torch.distributions import Categorical
+from transformers import ImageToTextPipeline, TranslationPipeline, pipeline
 
 from arc_spice.variational_pipelines.utils import (
     RTCVariationalPipelineBase,
@@ -182,3 +184,38 @@ class CustomTranslationPipeline(TranslationPipeline):
         logits = torch.stack(out["logits"], dim=1)
 
         return {"output_ids": output_ids, "logits": logits}
+
+
+class CustomOCRPipeline(ImageToTextPipeline):
+    """
+    custom OCR pipeline to return logits with the generated text.
+    """
+
+    def postprocess(self, model_outputs: dict, **postprocess_params):
+        raw_out = copy.deepcopy(model_outputs)
+        processed = super().postprocess(
+            model_outputs["model_output"], **postprocess_params
+        )
+
+        return {"generated_text": processed[0]["generated_text"], "raw_output": raw_out}
+
+    def _forward(self, model_inputs, **generate_kwargs):
+        if (
+            "input_ids" in model_inputs
+            and isinstance(model_inputs["input_ids"], list)
+            and all(x is None for x in model_inputs["input_ids"])
+        ):
+            model_inputs["input_ids"] = None
+
+        inputs = model_inputs.pop(self.model.main_input_name)
+        out = self.model.generate(
+            inputs,
+            **model_inputs,
+            **generate_kwargs,
+            output_logits=True,
+            return_dict_in_generate=True,
+        )
+
+        logits = torch.stack(out.logits, dim=1)
+        entropy = Categorical(logits=logits).entropy() / np.log(logits[0].size()[1])
+        return {"model_output": out.sequences, "entropies": entropy}

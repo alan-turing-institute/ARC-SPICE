@@ -217,7 +217,7 @@ class RTCVariationalPipelineBase(ABC):
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
 
-    def recognise(self, inp) -> dict[str, str | list[dict[str, str]]]:
+    def recognise(self, inp) -> dict[str, str | list[dict[str, str | torch.Tensor]]]:
         """
         Function to perform OCR.
 
@@ -244,7 +244,11 @@ class RTCVariationalPipelineBase(ABC):
         text = " ".join([itm[0]["generated_text"] for itm in out])
         return {
             "full_output": [
-                {"target": target, "generated_text": gen_text[0]["generated_text"]}
+                {
+                    "target": target,
+                    "generated_text": gen_text["generated_text"],
+                    "entropies": gen_text["entropies"],
+                }
                 for target, gen_text in zip(
                     inp["ocr_data"]["ocr_targets"], out, strict=True
                 )
@@ -501,4 +505,26 @@ class RTCVariationalPipelineBase(ABC):
                 "mutual_information": mutual_info,
             }
         )
+        return var_output
+
+    def get_ocr_confidence(self, var_output: dict) -> dict[str, float]:
+        """Generate the ocr confidence score.
+
+        Args:
+            var_output: variational run outputs
+
+        Returns:
+            dictionary with metrics
+        """
+        # Adapted for variational methods from: https://arxiv.org/pdf/2412.01221
+        stacked_entropies = torch.stack(
+            [
+                output["entropies"]
+                for output in var_output["recognition"]["full_output"]
+            ],
+            dim=1,
+        )
+        # mean entropy
+        mean = torch.mean(stacked_entropies)
+        var_output["recognition"].update({"mean_entropy": mean})
         return var_output
