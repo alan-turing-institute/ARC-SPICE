@@ -4,6 +4,7 @@ import torch
 from transformers import pipeline
 
 from arc_spice.variational_pipelines.utils import (
+    CustomOCRPipeline,
     CustomTranslationPipeline,
     RTCVariationalPipelineBase,
     dropout_off,
@@ -38,6 +39,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         data_pars: dict[str, Any],
         n_variational_runs=5,
         translation_batch_size=16,
+        ocr_batch_size=64,
     ) -> None:
         # are we doing zero-shot-classification?
         if model_pars["classifier"]["specific_task"] == "zero-shot-classification":
@@ -47,9 +49,11 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         super().__init__(self.zero_shot, n_variational_runs, translation_batch_size)
         # defining the pipeline objects
         self.ocr = pipeline(
-            task=model_pars["ocr"]["specific_task"],
             model=model_pars["ocr"]["model"],
             device=self.device,
+            pipeline_class=CustomOCRPipeline,
+            max_new_tokens=20,
+            batch_size=ocr_batch_size,
         )
         self.translator = pipeline(
             task=model_pars["translator"]["specific_task"],

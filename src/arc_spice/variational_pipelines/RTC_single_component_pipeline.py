@@ -8,6 +8,7 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipelineBase,
 )
 from arc_spice.variational_pipelines.utils import (
+    CustomOCRPipeline,
     CustomTranslationPipeline,
     dropout_off,
     dropout_on,
@@ -87,13 +88,16 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
         self,
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
+        ocr_batch_size=64,
         **kwargs,
     ):
         self.set_device()
         self.ocr: transformers.Pipeline = pipeline(
-            task=model_pars["ocr"]["specific_task"],
             model=model_pars["ocr"]["model"],
             device=self.device,
+            pipeline_class=CustomOCRPipeline,
+            max_new_tokens=20,
+            batch_size=ocr_batch_size,
             **kwargs,
         )
         self.model = self.ocr.model
@@ -101,7 +105,7 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
             step_name="recognition",
             input_key="ocr_data",
             forward_function=self.recognise,
-            confidence_function=self.recognise,  # THIS WILL NEED UPDATING : #issue 14
+            confidence_function=self.get_ocr_confidence,
             n_variational_runs=n_variational_runs,
             **kwargs,
         )
@@ -160,9 +164,9 @@ class ClassificationVariationalPipeline(RTCSingleComponentPipeline):
         super().__init__(
             step_name="classification",
             input_key="target_text",
-            forward_function=self.classify_topic_zero_shot
-            if zero_shot
-            else self.classify_topic,
+            forward_function=(
+                self.classify_topic_zero_shot if zero_shot else self.classify_topic
+            ),
             confidence_function=self.get_classification_confidence,
             n_variational_runs=n_variational_runs,
             **kwargs,

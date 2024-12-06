@@ -5,12 +5,15 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any
 
+import numpy as np
 import torch
 import transformers
+from torch.distributions import Categorical
 from torch.nn.functional import softmax
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
+    ImageToTextPipeline,
     Pipeline,
     TranslationPipeline,
     pipeline,
@@ -149,9 +152,9 @@ class RTCVariationalPipelineBase(ABC):
         self.func_map = {
             "recognition": self.recognise,
             "translation": self.translate,
-            "classification": self.classify_topic_zero_shot
-            if zero_shot
-            else self.classify_topic,
+            "classification": (
+                self.classify_topic_zero_shot if zero_shot else self.classify_topic
+            ),
         }
         # the naive outputs of the pipeline stages calculated in self.clean_inference
         self.naive_outputs = {
@@ -266,21 +269,44 @@ class RTCVariationalPipelineBase(ABC):
             set_dropout(model=pl.model, dropout_flag=False)
         logger.debug("-------------------------------------------------------\n\n")
 
-    def recognise(self, inp) -> dict[str, str]:
+    def recognise(self, inp) -> dict[str, str | list[dict[str, str | torch.Tensor]]]:
         """
-        Function to perform OCR
+        Function to perform OCR.
 
         Args:
-            inp: input
+            inp: input dict with key 'ocr_data', containing dict,
+                    {
+                        'ocr_images': list[ocr images],
+                        'ocr_targets': list[ocr target words]
+                    }
 
         Returns:
-            dictionary of outputs
+            dictionary of outputs:
+                    {
+                        'full_output': [
+                            {
+                                'generated_text': generated text from ocr model (str),
+                                'target': original target text (str)
+                            }
+                        ],
+                        'output': pieced back together string (str)
+                    }
         """
-        # Until the OCR data is available
-        # This will need the below comment:
-        #       type: ignore[misc]
-        # TODO https://github.com/alan-turing-institute/ARC-SPICE/issues/14
-        return {"outputs": inp["source_text"]}
+        out = self.ocr(inp["ocr_data"]["ocr_images"])  # type: ignore[misc]
+        text = " ".join([itm[0]["generated_text"] for itm in out])
+        return {
+            "full_output": [
+                {
+                    "target": target,
+                    "generated_text": gen_text["generated_text"],
+                    "entropies": gen_text["entropies"],
+                }
+                for target, gen_text in zip(
+                    inp["ocr_data"]["ocr_targets"], out, strict=True
+                )
+            ],
+            "output": text,
+        }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
         """
@@ -352,9 +378,7 @@ class RTCVariationalPipelineBase(ABC):
             descriptors["en"]
             for descriptors in self.dataset_meta_data["class_descriptors"]  # type: ignore[index]
         ]
-        forward = self.classifier(  # type: ignore[misc]
-            text, labels
-        )
+        forward = self.classifier(text, labels)  # type: ignore[misc]
         return collate_scores(
             [
                 {"label": label, "score": score}
@@ -560,6 +584,28 @@ class RTCVariationalPipelineBase(ABC):
         )
         return var_output
 
+    def get_ocr_confidence(self, var_output: dict) -> dict[str, float]:
+        """Generate the ocr confidence score.
+
+        Args:
+            var_output: variational run outputs
+
+        Returns:
+            dictionary with metrics
+        """
+        # Adapted for variational methods from: https://arxiv.org/pdf/2412.01221
+        stacked_entropies = torch.stack(
+            [
+                [data["entropies"] for data in output["full_output"]]
+                for output in var_output["recognition"]
+            ],
+            dim=1,
+        )
+        # mean entropy
+        mean = torch.mean(stacked_entropies)
+        var_output["recognition"].update({"mean_entropy": mean})
+        return var_output
+
 
 # Translation pipeline with additional functionality to save logits from fwd pass
 class CustomTranslationPipeline(TranslationPipeline):
@@ -619,3 +665,38 @@ class CustomTranslationPipeline(TranslationPipeline):
             "scores": max_token_scores,
             "entropy": normalised_entropy,
         }
+
+
+class CustomOCRPipeline(ImageToTextPipeline):
+    """
+    custom OCR pipeline to return logits with the generated text.
+    """
+
+    def postprocess(self, model_outputs: dict, **postprocess_params):
+        raw_out = copy.deepcopy(model_outputs)
+        processed = super().postprocess(
+            model_outputs["model_output"], **postprocess_params
+        )
+
+        return {"generated_text": processed[0]["generated_text"], "raw_output": raw_out}
+
+    def _forward(self, model_inputs, **generate_kwargs):
+        if (
+            "input_ids" in model_inputs
+            and isinstance(model_inputs["input_ids"], list)
+            and all(x is None for x in model_inputs["input_ids"])
+        ):
+            model_inputs["input_ids"] = None
+
+        inputs = model_inputs.pop(self.model.main_input_name)
+        out = self.model.generate(
+            inputs,
+            **model_inputs,
+            **generate_kwargs,
+            output_logits=True,
+            return_dict_in_generate=True,
+        )
+
+        logits = torch.stack(out.logits, dim=1)
+        entropy = Categorical(logits=logits).entropy() / np.log(logits[0].size()[1])
+        return {"model_output": out.sequences, "entropies": entropy}
