@@ -71,12 +71,12 @@ class ResultsGetter:
 
     def recognition_results(
         self,
-        clean_output: dict[str, str | list[dict[str, str | torch.Tensor]]],
-        var_output: dict[str, dict],
+        clean_output: dict,
+        var_output: dict,
         **kwargs,
     ):
         # ### RECOGNITION ###
-        charerror = ocr_error(clean_output)
+        charerror = ocr_error(clean_output["recognition"])
         confidence = var_output["recognition"]["mean_entropy"]
         return RecognitionResults(confidence=confidence, accuracy=charerror)
 

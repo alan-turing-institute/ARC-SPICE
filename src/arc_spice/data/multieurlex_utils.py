@@ -67,14 +67,17 @@ def extract_articles(
 
 def _make_ocr_data(text: str) -> list[tuple[Image.Image, str]]:
     text_split = text.split()
-    text_split = [text for text in text_split if text not in ("", " ", None)]
+    text_split = [text for text in text_split if text not in ("", " ")]
     generator = GeneratorFromStrings(text_split, count=len(text_split))
     return list(generator)
 
 
-def make_ocr_data(item: LazyRow) -> dict[str, tuple[Image.Image] | tuple[str]]:
-    images, targets = zip(*_make_ocr_data(item["source_text"]), strict=True)
-    return {"ocr_images": images, "ocr_targets": targets}
+def make_ocr_data(item: LazyRow) -> dict:
+    try:
+        images, targets = zip(*_make_ocr_data(item["source_text"]), strict=True)
+    except ValueError:
+        return {"ocr_data": {"ocr_images": None, "ocr_targets": None}}
+    return {"ocr_data": {"ocr_images": images, "ocr_targets": targets}}
 
 
 class TranslationPreProcesser:
@@ -229,11 +232,14 @@ def load_multieurlex_for_pipeline(
                 make_ocr_data,
                 features=datasets.Features(
                     {
-                        "ocr_images": datasets.Sequence(datasets.Image(decode=True)),
-                        "ocr_targets": datasets.Sequence(datasets.Value("string")),
+                        "ocr_data": {
+                            "ocr_images": datasets.Sequence(
+                                datasets.Image(decode=True)
+                            ),
+                            "ocr_targets": datasets.Sequence(datasets.Value("string")),
+                        },
                         **feats,
                     }
                 ),
             )
-
     return dataset_dict, meta_data
