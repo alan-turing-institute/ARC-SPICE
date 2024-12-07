@@ -74,7 +74,7 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     pipeline.clean_inference(dummy_data)
 
-    pipeline.recognise.assert_called_with(dummy_data)
+    pipeline.recognise.assert_called_with([[0.1, 0.2], [0.2, 0.3]])
     pipeline.translate.assert_called_with("rec text")
     pipeline.classify_topic_zero_shot.assert_called_with("translate text")
 
