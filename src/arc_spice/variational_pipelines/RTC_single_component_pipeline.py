@@ -89,26 +89,23 @@ class RecognitionVariationalPipeline(RTCSingleComponentPipeline):
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
         ocr_batch_size=64,
-        **kwargs,
     ):
         self.set_device()
-        self.ocr: transformers.Pipeline = pipeline(
-            model=model_pars["ocr"]["model"],
-            device=self.device,
-            pipeline_class=CustomOCRPipeline,
-            max_new_tokens=20,
-            batch_size=ocr_batch_size,
-            **kwargs,
-        )
-        self.model = self.ocr.model
         super().__init__(
             step_name="recognition",
             input_key="ocr_data",
             forward_function=self.recognise,
             confidence_function=self.get_ocr_confidence,
             n_variational_runs=n_variational_runs,
-            **kwargs,
         )
+        self.ocr: transformers.Pipeline = pipeline(
+            model=model_pars["ocr"]["model"],
+            device=self.device,
+            pipeline_class=CustomOCRPipeline,
+            max_new_tokens=20,
+            batch_size=ocr_batch_size,
+        )
+        self.model = self.ocr.model
         self._init_pipeline_map()
 
 
@@ -118,7 +115,6 @@ class TranslationVariationalPipeline(RTCSingleComponentPipeline):
         model_pars: dict[str, dict[str, str]],
         n_variational_runs=5,
         translation_batch_size=4,
-        **kwargs,
     ):
         self.set_device()
         # need to initialise the NLI models in this case
