@@ -1,6 +1,5 @@
 ocr:
-  specific_task: "image-to-text"
-  model: "microsoft/trocr-base-handwritten"
+  model: "microsoft/trocr-small-printed"
 
 translator:
   specific_task: "translation_fr_to_en"

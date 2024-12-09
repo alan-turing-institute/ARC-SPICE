@@ -79,19 +79,19 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
 
         # run the functions
         # UNTIL THE OCR DATA IS AVAILABLE
-        clean_output["recognition"] = self.recognise(x)
+        clean_output["recognition"] = self.recognise(x["ocr_data"])
 
         clean_output["translation"] = self.translate(
-            clean_output["recognition"]["outputs"]
+            clean_output["recognition"]["full_output"]
         )
         # we now need to pass the input correct to the correct forward method
         if self.zero_shot:
             clean_output["classification"] = self.classify_topic_zero_shot(
-                clean_output["translation"]["outputs"][0]
+                clean_output["translation"]["full_output"]
             )
         else:
             clean_output["classification"] = self.classify_topic(
-                clean_output["translation"]["outputs"][0]
+                clean_output["translation"]["full_output"]
             )
         return clean_output
 
@@ -109,8 +109,8 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
         }
         # define the input map for brevity in forward pass
         input_map = {
-            "recognition": x,
-            "translation": clean_output["recognition"]["outputs"],
+            "recognition": x["ocr_data"],
+            "translation": clean_output["recognition"]["full_output"],
             "classification": clean_output["translation"]["full_output"],
         }
 
@@ -130,6 +130,7 @@ class RTCVariationalPipeline(RTCVariationalPipelineBase):
 
         # run metric helper functions
         var_output = self.stack_variational_outputs(var_output)
+        var_output = self.get_ocr_confidence(var_output)
         var_output = self.translation_semantic_density(
             clean_output=clean_output, var_output=var_output
         )

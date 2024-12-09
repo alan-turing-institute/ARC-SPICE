@@ -62,8 +62,8 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
                     translation_batch_size=1,
                 )
 
-    dummy_recognise_output = {"outputs": "rec text"}
-    dummy_translate_output = {"outputs": ["translate text"]}
+    dummy_recognise_output = {"full_output": "rec text"}
+    dummy_translate_output = {"full_output": "translate text"}
     dummy_classification_output = {"outputs": "classification"}
 
     pipeline.recognise = MagicMock(return_value=dummy_recognise_output)
@@ -74,15 +74,16 @@ def test_pipeline_inputs(dummy_data, dummy_metadata):
 
     pipeline.clean_inference(dummy_data)
 
-    pipeline.recognise.assert_called_with(dummy_data)
+    pipeline.recognise.assert_called_with([[0.1, 0.2], [0.2, 0.3]])
     pipeline.translate.assert_called_with("rec text")
     pipeline.classify_topic_zero_shot.assert_called_with("translate text")
 
 
 def test_single_component_inputs(dummy_data, dummy_metadata):
     pipeline_config = open_yaml_path(PIPELINE_PATH)
-    dummy_recognise_output = {"outputs": "rec text"}
-    dummy_translate_output = {"outputs": ["translate text"]}
+
+    dummy_recognise_output = {"full_output": "rec text"}
+    dummy_translate_output = {"full_output": "translate text"}
     dummy_classification_output = {"outputs": "classification"}
 
     with patch(  # noqa: SIM117
