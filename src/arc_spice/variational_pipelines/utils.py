@@ -448,7 +448,7 @@ class RTCVariationalPipelineBase(ABC):
                     entropies.append(ent.squeeze())
         all_entropies = torch.cat(entropies)
         # mean entropy
-        mean = torch.mean(all_entropies)
+        mean = torch.mean(all_entropies).item()
         var_output["recognition"].update({"mean_entropy": mean})
         return var_output
 
