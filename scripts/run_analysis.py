@@ -20,6 +20,7 @@ def main(
         - classifier.json
     """
 
+    # step_keys = ["recognition", "translation", "classification"]
     model_keys = ["ocr", "translator", "classifier"]
 
     # pipeline analysis

@@ -1,7 +1,7 @@
 import torch
 
 
-def recognition_analysis(all_results: list[dict]):
+def recognition_vectors(all_results: list[dict]):
     # brier score params:   1 - entropy, 1 - character error rate
     confidence_vector = [
         (1 - next(iter(sample_dict.values()))["recognition"]["mean_entropy"])
@@ -11,10 +11,10 @@ def recognition_analysis(all_results: list[dict]):
         (1 - next(iter(sample_dict.values()))["recognition"]["character_error_rate"])
         for sample_dict in all_results
     ]
-    return create_results_dict(confidence_vector, accuracy_vector)
+    return confidence_vector, accuracy_vector
 
 
-def translation_analysis(all_results: list[dict]):
+def translation_vectors(all_results: list[dict]):
     # brier score params:   semantic_density, comet score
     confidence_vector = [
         next(iter(sample_dict.values()))["translation"]["weighted_semantic_density"]
@@ -24,10 +24,10 @@ def translation_analysis(all_results: list[dict]):
         next(iter(sample_dict.values()))["translation"]["comet_score"]
         for sample_dict in all_results
     ]
-    return create_results_dict(confidence_vector, accuracy_vector)
+    return confidence_vector, accuracy_vector
 
 
-def classification_analysis(all_results: list[dict]):
+def classification_vectors(all_results: list[dict]):
     # brier score params:   1 - entropy, hamming accuracy/zero-one-accuracy
     confidence_vector = [
         (
@@ -43,7 +43,19 @@ def classification_analysis(all_results: list[dict]):
         for sample_dict in all_results
     ]
 
-    return create_results_dict(confidence_vector, accuracy_vector)
+    return confidence_vector, accuracy_vector
+
+
+def recognition_analysis(all_results):
+    return create_results_dict(*recognition_vectors(all_results))
+
+
+def translation_analysis(all_results):
+    return create_results_dict(*translation_vectors(all_results))
+
+
+def classification_analysis(all_results):
+    return create_results_dict(*classification_vectors(all_results))
 
 
 def create_results_dict(confidence_vector, accuracy_vector):
@@ -60,6 +72,20 @@ def brier_score(predicted: list, error: list):
     ).item()
 
 
+def get_vectors(all_results, step_key):
+    vector_dict = {key: [] for key in next(iter(all_results[0].values()))[step_key]}
+    vector_dict["celex_id"] = []
+    for row_dict in all_results:
+        row_values = next(iter(row_dict.values()))
+        vector_dict["celex_id"].append(next(iter(row_dict.keys())))
+        for key in vector_dict:
+            if key == "celex_id":
+                continue
+            vector_dict[key].append(row_values[step_key][key])
+
+    return vector_dict
+
+
 analysis_func_map = {
     "ocr": recognition_analysis,
     "translator": translation_analysis,
@@ -69,3 +95,10 @@ analysis_func_map = {
 
 def exp_analysis(results_dict: list[dict], analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
+
+
+def exp_vectors(results_dict: list[dict], analysis_keys: list):
+    return {
+        key: get_vectors(all_results=results_dict, step_key=key)
+        for key in analysis_keys
+    }
