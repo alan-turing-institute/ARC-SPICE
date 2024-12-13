@@ -1,4 +1,6 @@
+import numpy as np
 import torch
+from sklearn.model_selection import train_test_split
 
 
 def recognition_vectors(all_results: list[dict]):
@@ -102,3 +104,50 @@ def exp_vectors(results_dict: list[dict], analysis_keys: list):
         key: get_vectors(all_results=results_dict, step_key=key)
         for key in analysis_keys
     }
+
+
+def collect_pipeline_dict(
+    results_dict: list[dict],
+) -> dict[str, tuple[list[float], list[float]]]:
+    """Given a loaded results dict for the entire pipeline collect all three sets of
+    results into a dictionary.
+
+    Args:
+        results_dict: list of dictionaries of the results.
+
+    Returns:
+        dict with structure:
+            {
+                "recognition": recognition results vectors,
+                "translation": translation results vectors,
+                "classification": classification results vectors
+            }
+    """
+    return {
+        "recognition": recognition_vectors(results_dict),
+        "translation": translation_vectors(results_dict),
+        "classification": classification_vectors(results_dict),
+    }
+
+
+def test_train_split_res(
+    results_dict: dict[str, tuple[list[float], list[float]]],
+) -> tuple[
+    dict[str, tuple[list[float], list[float]]],
+    dict[str, tuple[list[float], list[float]]],
+]:
+    """Split a collection of extracted results dictionaries into a test/train split.
+
+    Args:
+        results_dict: collected results vector dictionary with structure
+                        {
+                            'task': (uq vectors, error vectors)
+                        }
+    """
+    train_res = {}
+    test_res = {}
+    for key, itm in results_dict.items():
+        split = train_test_split(np.column_stack(itm))
+        train_res[key] = (split[0][:, 0], split[0][:, 1])
+        test_res[key] = (split[1][:, 0], split[1][:, 1])
+    return train_res, test_res
