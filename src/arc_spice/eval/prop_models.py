@@ -12,7 +12,7 @@ from arc_spice.eval import analysis_utils as au
 
 def multiplication_prop(
     results_dict: dict[str, tuple[list[float], list[float]]],
-) -> dict[str, tuple[list[float], list[float]]]:
+) -> dict[str, list[float]]:
     """Compute the naïve approach of multiplying together confidences as though they
     represent independent probabilities of success.
 
@@ -31,6 +31,27 @@ def multiplication_prop(
         previous_vec = previous_vec * np.array(itm[0])
         mult_res[key] = previous_vec
     return mult_res
+
+
+def eval_mult_prop(
+    results_dict: dict[str, tuple[list[float], list[float]]],
+) -> dict[str, float]:
+    """Evaluate the multiplication prop version
+
+    Args:
+        results_dict: collated results dict, with structure:
+                        {
+                            'task': (uq vector, error vector)
+                        }
+
+    Returns:
+        brier score for each step
+    """
+    mult_res = multiplication_prop(results_dict)
+    out = {}
+    for key, itm in results_dict.items():
+        out[key] = au.brier_score(mult_res[key], itm[1])
+    return out
 
 
 def fit_uncertainty_model(
