@@ -133,7 +133,7 @@ def collect_pipeline_dict(
 
 
 def test_train_split_res(
-    results_dict: dict[str, tuple[list[float], list[float]]],
+    results_dict: dict[str, tuple[list[float], list[float]]], seed: int = 37
 ) -> tuple[
     dict[str, tuple[list[float], list[float]]],
     dict[str, tuple[list[float], list[float]]],
@@ -149,7 +149,7 @@ def test_train_split_res(
     train_res = {}
     test_res = {}
     for key, itm in results_dict.items():
-        split = train_test_split(np.column_stack(itm))
+        split = train_test_split(np.column_stack(itm), random_state=seed)
         train_res[key] = (split[0][:, 0], split[0][:, 1])
         test_res[key] = (split[1][:, 0], split[1][:, 1])
     return train_res, test_res

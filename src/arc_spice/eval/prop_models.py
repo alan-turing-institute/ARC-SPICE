@@ -138,7 +138,7 @@ def fitted_uq_model(
         )
     )
 
-    # return collated outpu
+    # return collated output
     return {
         "recognition": (recog_pred.reshape(1, -1), test_res["recognition"][1]),
         "translation": (trans_pred.reshape(1, -1), test_res["translation"][1]),
