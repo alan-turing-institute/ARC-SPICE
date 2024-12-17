@@ -1,3 +1,5 @@
+import math
+
 import torch
 
 
@@ -41,3 +43,19 @@ def MC_dropout_scores(
         "all_entropies": all_entropies,
         "mutual_information": mutual_info,
     }
+
+
+def clean_entropy(clean_scores):
+    epsilon = 1e-15
+    stacked_scores = torch.stack(
+        [torch.tensor(row_scores) for row_scores in clean_scores]
+    )
+    clean_entropies = (
+        -1
+        * (
+            stacked_scores * torch.log(stacked_scores + epsilon)
+            + (1 - stacked_scores) * torch.log((1 - stacked_scores) + epsilon)
+        )
+        / math.log(2)
+    )
+    return torch.mean(clean_entropies, dim=-1).tolist()

@@ -4,6 +4,9 @@ from sklearn.calibration import check_consistent_length, column_or_1d
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import _check_pos_label_consistency
 
+from arc_spice.eval.classification_error import clean_entropy
+from arc_spice.eval.translation_error import length_normalised_metric
+
 
 def recognition_vectors(all_results: list[dict]):
     # brier score params:   1 - entropy, 1 - character error rate
@@ -87,6 +90,22 @@ def get_vectors(all_results, step_key):
                 continue
             vector_dict[key].append(row_values[step_key][key])
 
+    if step_key == "translation":
+        # additional measures
+        vector_dict["len_norm_cond_prob"] = length_normalised_metric(
+            vector_dict["sequence_lengths"],
+            vector_dict["clean_conditional_probability"],
+        )
+        vector_dict["len_norm_entropy"] = length_normalised_metric(
+            vector_dict["sequence_lengths"],
+            vector_dict["mean_entropy"],
+        )
+
+    if step_key == "classification":
+        # additional measures
+        vector_dict["clean_entropy"] = clean_entropy(
+            vector_dict["clean_scores"],
+        )
     return vector_dict
 
 
