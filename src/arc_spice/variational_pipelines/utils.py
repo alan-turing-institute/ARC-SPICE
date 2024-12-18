@@ -699,5 +699,11 @@ class CustomOCRPipeline(ImageToTextPipeline):
         )
 
         logits = torch.stack(out.logits, dim=1)
-        entropy = Categorical(logits=logits).entropy() / np.log(logits[0].size()[1])
-        return {"model_output": out.sequences, "entropies": entropy.squeeze()}
+        softmax = torch.nn.functional.Softmax(dim=-1)
+        max_scores = torch.max(softmax, dim=-1)
+        entropy = Categorical(scores=softmax).entropy() / np.log(logits[0].size()[1])
+        return {
+            "model_output": out.sequences,
+            "entropies": entropy.squeeze(),
+            "max_scores": max_scores.squeeze(),
+        }
