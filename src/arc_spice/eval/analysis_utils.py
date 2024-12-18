@@ -1,8 +1,6 @@
 import numpy as np
 import torch
-from sklearn.calibration import check_consistent_length, column_or_1d
 from sklearn.model_selection import train_test_split
-from sklearn.utils.validation import _check_pos_label_consistency
 
 from arc_spice.eval.classification_error import clean_entropy
 from arc_spice.eval.translation_error import length_normalised_metric
@@ -79,18 +77,33 @@ def brier_score(predicted: list, error: list):
     ).item()
 
 
-def get_vectors(all_results, step_key):
+def get_vectors(all_results, step_key, target_celex_ids=None):
     vector_dict = {key: [] for key in next(iter(all_results[0].values()))[step_key]}
     vector_dict["celex_id"] = []
     for row_dict in all_results:
         row_values = next(iter(row_dict.values()))
-        vector_dict["celex_id"].append(next(iter(row_dict.keys())))
-        for key in vector_dict:
-            if key == "celex_id":
-                continue
-            vector_dict[key].append(row_values[step_key][key])
+        row_celex_id = next(iter(row_dict.keys()))
+        if target_celex_ids:
+            if row_celex_id in target_celex_ids:
+                vector_dict["celex_id"].append(row_celex_id)
+                for key in vector_dict:
+                    if key == "celex_id":
+                        continue
+                    vector_dict[key].append(row_values[step_key][key])
+        else:
+            vector_dict["celex_id"].append(row_celex_id)
+            for key in vector_dict:
+                if key == "celex_id":
+                    continue
+                vector_dict[key].append(row_values[step_key][key])
 
-    if step_key == "translation":
+    if step_key == "recognition":
+        vector_dict["confidence"] = (1 - np.array(vector_dict["mean_entropy"])).tolist()
+        vector_dict["character_accuracy_rate"] = (
+            1 - np.array(vector_dict["character_error_rate"])
+        ).tolist()
+
+    elif step_key == "translation":
         # additional measures
         vector_dict["len_norm_cond_prob"] = length_normalised_metric(
             vector_dict["sequence_lengths"],
@@ -101,11 +114,21 @@ def get_vectors(all_results, step_key):
             vector_dict["mean_entropy"],
         )
 
-    if step_key == "classification":
+    elif step_key == "classification":
         # additional measures
         vector_dict["clean_entropy"] = clean_entropy(
             vector_dict["clean_scores"],
-        )
+        ).tolist()
+        # additional measures
+        vector_dict["clean_confidence"] = (
+            1 - clean_entropy(vector_dict["clean_scores"])
+        ).tolist()
+        vector_dict["confidence"] = (
+            1 - np.array(vector_dict["mean_predicted_entropy"])
+        ).tolist()
+        vector_dict["hamming_accuracy"] = (
+            1 - np.array(vector_dict["hamming_loss"])
+        ).tolist()
     return vector_dict
 
 
@@ -120,9 +143,9 @@ def exp_analysis(results_dict: list[dict], analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
 
 
-def exp_vectors(results_dict: list[dict], analysis_keys: list):
+def exp_vectors(results_dict: list[dict], analysis_keys: list, **kwargs):
     return {
-        key: get_vectors(all_results=results_dict, step_key=key)
+        key: get_vectors(all_results=results_dict, step_key=key, **kwargs)
         for key in analysis_keys
     }
 
@@ -172,120 +195,3 @@ def test_train_split_res(
         train_res[key] = (split[0][:, 0], split[0][:, 1])
         test_res[key] = (split[1][:, 0], split[1][:, 1])
     return train_res, test_res
-
-
-def calibration_curve(
-    y_true,
-    y_prob,
-    *,
-    pos_label=None,
-    n_bins=5,
-    strategy="uniform",
-    return_ece=False,
-):
-    """Compute true and predicted probabilities for a calibration curve.
-
-    The method assumes the inputs come from a binary classifier, and
-    discretize the [0, 1] interval into bins.
-
-    Calibration curves may also be referred to as reliability diagrams.
-
-    Read more in the :ref:`User Guide <calibration>`.
-
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True targets.
-
-    y_prob : array-like of shape (n_samples,)
-        Probabilities of the positive class.
-
-    pos_label : int, float, bool or str, default=None
-        The label of the positive class.
-
-        .. versionadded:: 1.1
-
-    n_bins : int, default=5
-        Number of bins to discretize the [0, 1] interval. A bigger number
-        requires more data. Bins with no samples (i.e. without
-        corresponding values in `y_prob`) will not be returned, thus the
-        returned arrays may have less than `n_bins` values.
-
-    strategy : {'uniform', 'quantile'}, default='uniform'
-        Strategy used to define the widths of the bins.
-
-        uniform
-            The bins have identical widths.
-        quantile
-            The bins have the same number of samples and depend on `y_prob`.
-
-    Returns
-    -------
-    prob_true : ndarray of shape (n_bins,) or smaller
-        The proportion of samples whose class is the positive class, in each
-        bin (fraction of positives).
-
-    prob_pred : ndarray of shape (n_bins,) or smaller
-        The mean predicted probability in each bin.
-
-    References
-    ----------
-    Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
-    Probabilities With Supervised Learning, in Proceedings of the 22nd
-    International Conference on Machine Learning (ICML).
-    See section 4 (Qualitative Analysis of Predictions).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from sklearn.calibration import calibration_curve
-    >>> y_true = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1])
-    >>> y_pred = np.array([0.1, 0.2, 0.3, 0.4, 0.65, 0.7, 0.8, 0.9, 1.0])
-    >>> prob_true, prob_pred = calibration_curve(y_true, y_pred, n_bins=3)
-    >>> prob_true
-    array([0. , 0.5, 1. ])
-    >>> prob_pred
-    array([0.2  , 0.525, 0.85 ])
-    """
-    y_true = column_or_1d(y_true)
-    y_prob = column_or_1d(y_prob)
-    check_consistent_length(y_true, y_prob)
-    pos_label = _check_pos_label_consistency(pos_label, y_true)
-
-    if y_prob.min() < 0 or y_prob.max() > 1:
-        err_msg = "y_prob has values outside [0, 1]."
-        raise ValueError(err_msg)
-
-    labels = np.unique(y_true)
-    if len(labels) > 2:
-        err_msg = f"Only binary classification is supported. Provided labels {labels}."
-        raise ValueError(err_msg)
-    y_true = y_true == pos_label
-
-    if strategy == "quantile":  # Determine bin edges by distribution of data
-        quantiles = np.linspace(0, 1, n_bins + 1)
-        bins = np.percentile(y_prob, quantiles * 100)
-    elif strategy == "uniform":
-        bins = np.linspace(0.0, 1.0, n_bins + 1)
-    else:
-        err_msg = (
-            "Invalid entry to 'strategy' input. Strategy "
-            "must be either 'quantile' or 'uniform'."
-        )
-        raise ValueError(err_msg)
-
-    binids = np.searchsorted(bins[1:-1], y_prob)
-
-    bin_sums = np.bincount(binids, weights=y_prob, minlength=len(bins))
-    bin_true = np.bincount(binids, weights=y_true, minlength=len(bins))
-    bin_total = np.bincount(binids, minlength=len(bins))
-
-    nonzero = bin_total != 0
-    prob_true = bin_true[nonzero] / bin_total[nonzero]
-    prob_pred = bin_sums[nonzero] / bin_total[nonzero]
-
-    if return_ece:
-        ece = np.sum(np.abs(prob_true - prob_pred) * (bin_total[nonzero] / len(y_true)))
-        return prob_true, prob_pred, ece
-
-    return prob_true, prob_pred

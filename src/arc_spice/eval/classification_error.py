@@ -58,4 +58,4 @@ def clean_entropy(clean_scores):
         )
         / math.log(2)
     )
-    return torch.mean(clean_entropies, dim=-1).tolist()
+    return torch.mean(clean_entropies, dim=-1)
