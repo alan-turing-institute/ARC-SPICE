@@ -7,3 +7,5 @@ lang_pair:
   target: "en"
 
 drop_length: 1000
+
+load_ocr_data: True

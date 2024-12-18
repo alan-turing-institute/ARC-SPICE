@@ -46,15 +46,19 @@ def main(
     # initialise pipeline
     data_config = open_yaml_path(data_config_pth)
     pipeline_config = open_yaml_path(pipeline_config_pth)
+
+    if model_key != "ocr":
+        data_config["load_ocr_data"] = False
+
     data_sets, meta_data = load_multieurlex_for_pipeline(**data_config)
     test_loader = data_sets["test"]
     if model_key == "ocr":
         rtc_single_component_pipeline = RecognitionVariationalPipeline(
-            model_pars=pipeline_config, data_pars=meta_data
+            model_pars=pipeline_config
         )
     elif model_key == "translator":
         rtc_single_component_pipeline = TranslationVariationalPipeline(
-            model_pars=pipeline_config, data_pars=meta_data
+            model_pars=pipeline_config
         )
     elif model_key == "classifier":
         rtc_single_component_pipeline = ClassificationVariationalPipeline(

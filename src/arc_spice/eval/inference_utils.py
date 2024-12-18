@@ -17,7 +17,15 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
     RTCVariationalPipeline,
 )
 
-RecognitionResults = namedtuple("RecognitionResults", ["confidence", "accuracy"])
+RecognitionResults = namedtuple(
+    "RecognitionResults",
+    [
+        "mean_entropy",
+        "character_error_rate",
+        "full_output",
+        "max_scores",
+    ],
+)
 
 TranslationResults = namedtuple(
     "TranslationResults",
@@ -71,14 +79,19 @@ class ResultsGetter:
 
     def recognition_results(
         self,
-        clean_output: dict[str, str | list[dict[str, str | torch.Tensor]]],
-        var_output: dict[str, dict],
+        clean_output: dict,
+        var_output: dict,
         **kwargs,
     ):
         # ### RECOGNITION ###
-        charerror = ocr_error(clean_output)
+        charerror = ocr_error(clean_output["recognition"])
         confidence = var_output["recognition"]["mean_entropy"]
-        return RecognitionResults(confidence=confidence, accuracy=charerror)
+        return RecognitionResults(
+            mean_entropy=confidence,
+            character_error_rate=charerror,
+            max_scores=clean_output["recognition"]["outputs"]["max_scores"],
+            full_output=clean_output["recognition"]["full_output"],
+        )
 
     def translation_results(
         self,
@@ -150,13 +163,40 @@ def run_inference(
     pipeline: RTCVariationalPipeline | RTCSingleComponentPipeline,
     results_getter: ResultsGetter,
 ):
+    type_errors = []
+    oom_errors = []
     results = []
     for _, inp in enumerate(tqdm(dataloader)):
-        clean_out, var_out = pipeline.variational_inference(inp)
-        row_results_dict = results_getter.get_results(
-            clean_output=clean_out,
-            var_output=var_out,
-            test_row=inp,
-        )
-        results.append({inp["celex_id"]: row_results_dict})
+        # TEMPORARY FIX
+        try:
+            clean_out, var_out = pipeline.variational_inference(inp)
+            row_results_dict = results_getter.get_results(
+                clean_output=clean_out,
+                var_output=var_out,
+                test_row=inp,
+            )
+            results.append({inp["celex_id"]: row_results_dict})
+        # TEMPORARY FIX ->
+        except TypeError:
+            type_errors.append(inp["celex_id"])
+            continue
+
+        except torch.cuda.OutOfMemoryError:
+            oom_errors.append(inp["celex_id"])
+            continue
+
+        except torch.OutOfMemoryError:
+            oom_errors.append(inp["celex_id"])
+            continue
+
+    print("Skipped following CELEX IDs due to TypeError:")
+    print(
+        '"TypeError: Incorrect format used for image. Should be an url linking to'
+        ' an image, a base64 string, a local path, or a PIL image."'
+    )
+    print(type_errors)
+
+    print("Skipped following CELEX IDs due to torch.cuda.OutOfMemoryError:")
+    print(oom_errors)
+
     return results

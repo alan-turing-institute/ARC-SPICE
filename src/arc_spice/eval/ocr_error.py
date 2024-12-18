@@ -6,6 +6,8 @@ from typing import Any
 
 from torchmetrics.text import CharErrorRate
 
+cer = CharErrorRate()
+
 
 def ocr_error(ocr_output: dict[Any, Any]) -> float:
     """
@@ -30,7 +32,6 @@ def ocr_error(ocr_output: dict[Any, Any]) -> float:
     Returns:
         Character error rate across entire output of OCR (float)
     """
-    preds = [itm["generated_text"].lower() for itm in ocr_output["full_output"]]
-    targs = [itm["target"].lower() for itm in ocr_output["full_output"]]
-    cer = CharErrorRate()
-    return cer(preds, targs).item()
+    preds = [itm["generated_text"].lower() for itm in ocr_output["outputs"]]
+    targs = [itm["target"].lower() for itm in ocr_output["outputs"]]
+    return cer(preds, targs).detach().item()

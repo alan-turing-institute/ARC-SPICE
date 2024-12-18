@@ -283,29 +283,28 @@ class RTCVariationalPipelineBase(ABC):
         Returns:
             dictionary of outputs:
                     {
-                        'full_output': [
+                        'outputs': [
                             {
                                 'generated_text': generated text from ocr model (str),
                                 'target': original target text (str)
                             }
                         ],
-                        'output': pieced back together string (str)
+                        'full_output': pieced back together string (str)
                     }
         """
-        out = self.ocr(inp["ocr_data"]["ocr_images"])  # type: ignore[misc]
-        text = " ".join([itm[0]["generated_text"] for itm in out])
+        out = self.ocr(inp["ocr_images"])  # type: ignore[misc]
+        text = " ".join([itm["generated_text"] for itm in out])
         return {
-            "full_output": [
+            "outputs": [
                 {
                     "target": target,
                     "generated_text": gen_text["generated_text"],
-                    "entropies": gen_text["entropies"],
+                    "entropies": gen_text["raw_output"]["entropies"],
+                    "max_scores": gen_text["raw_output"]["max_scores"],
                 }
-                for target, gen_text in zip(
-                    inp["ocr_data"]["ocr_targets"], out, strict=True
-                )
+                for target, gen_text in zip(inp["ocr_targets"], out, strict=True)
             ],
-            "output": text,
+            "full_output": text,
         }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
@@ -428,6 +427,31 @@ class RTCVariationalPipelineBase(ABC):
                 new_var_dict[step][metric] = new_values
         # overwrite the existing output dictionary
         return new_var_dict
+
+    def get_ocr_confidence(self, var_output: dict, **kwargs) -> dict[str, float]:
+        """Generate the ocr confidence score.
+
+        Args:
+            var_output: variational run outputs
+
+        Returns:
+            dictionary with metrics
+        """
+        # Adapted for variational methods from: https://arxiv.org/pdf/2412.01221
+        entropies = []
+        recognition_batches = var_output["recognition"]["outputs"]
+        for batch in recognition_batches:
+            for sequence in batch:
+                ent = sequence["entropies"]
+                if ent.dim() == 1:
+                    entropies.append(ent)
+                else:
+                    entropies.append(ent.squeeze())
+        all_entropies = torch.cat(entropies)
+        # mean entropy
+        mean = torch.mean(all_entropies).item()
+        var_output["recognition"].update({"mean_entropy": mean})
+        return var_output
 
     def sentence_density(
         self,
@@ -584,28 +608,6 @@ class RTCVariationalPipelineBase(ABC):
         )
         return var_output
 
-    def get_ocr_confidence(self, var_output: dict) -> dict[str, float]:
-        """Generate the ocr confidence score.
-
-        Args:
-            var_output: variational run outputs
-
-        Returns:
-            dictionary with metrics
-        """
-        # Adapted for variational methods from: https://arxiv.org/pdf/2412.01221
-        stacked_entropies = torch.stack(
-            [
-                [data["entropies"] for data in output["full_output"]]
-                for output in var_output["recognition"]
-            ],
-            dim=1,
-        )
-        # mean entropy
-        mean = torch.mean(stacked_entropies)
-        var_output["recognition"].update({"mean_entropy": mean})
-        return var_output
-
 
 # Translation pipeline with additional functionality to save logits from fwd pass
 class CustomTranslationPipeline(TranslationPipeline):
@@ -698,5 +700,11 @@ class CustomOCRPipeline(ImageToTextPipeline):
         )
 
         logits = torch.stack(out.logits, dim=1)
-        entropy = Categorical(logits=logits).entropy() / np.log(logits[0].size()[1])
-        return {"model_output": out.sequences, "entropies": entropy}
+        softmax = torch.nn.functional.Softmax(dim=-1)
+        max_scores = torch.max(softmax, dim=-1)
+        entropy = Categorical(scores=softmax).entropy() / np.log(logits[0].size()[1])
+        return {
+            "model_output": out.sequences,
+            "entropies": entropy.squeeze(),
+            "max_scores": max_scores.squeeze(),
+        }
