@@ -300,6 +300,7 @@ class RTCVariationalPipelineBase(ABC):
                     "target": target,
                     "generated_text": gen_text["generated_text"],
                     "entropies": gen_text["raw_output"]["entropies"],
+                    "max_scores": gen_text["raw_output"]["max_scores"],
                 }
                 for target, gen_text in zip(inp["ocr_targets"], out, strict=True)
             ],

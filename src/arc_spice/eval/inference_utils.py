@@ -18,7 +18,13 @@ from arc_spice.variational_pipelines.RTC_variational_pipeline import (
 )
 
 RecognitionResults = namedtuple(
-    "RecognitionResults", ["mean_entropy", "character_error_rate"]
+    "RecognitionResults",
+    [
+        "mean_entropy",
+        "character_error_rate",
+        "full_output",
+        "max_scores",
+    ],
 )
 
 TranslationResults = namedtuple(
@@ -81,7 +87,10 @@ class ResultsGetter:
         charerror = ocr_error(clean_output["recognition"])
         confidence = var_output["recognition"]["mean_entropy"]
         return RecognitionResults(
-            mean_entropy=confidence, character_error_rate=charerror
+            mean_entropy=confidence,
+            character_error_rate=charerror,
+            max_scores=clean_output["recognition"]["outputs"]["max_scores"],
+            full_output=clean_output["recognition"]["full_output"],
         )
 
     def translation_results(
