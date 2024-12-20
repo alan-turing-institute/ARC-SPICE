@@ -23,7 +23,7 @@ RecognitionResults = namedtuple(
         "mean_entropy",
         "character_error_rate",
         "full_output",
-        "max_scores",
+        "clean_scores",
     ],
 )
 
@@ -89,7 +89,7 @@ class ResultsGetter:
         return RecognitionResults(
             mean_entropy=confidence,
             character_error_rate=charerror,
-            max_scores=clean_output["recognition"]["outputs"]["max_scores"],
+            clean_scores=clean_output["recognition"]["clean_scores"],
             full_output=clean_output["recognition"]["full_output"],
         )
 
@@ -189,7 +189,7 @@ def run_inference(
             oom_errors.append(inp["celex_id"])
             continue
 
-    print("Skipped following CELEX IDs due to TypeError:")
+    print("Skipped following CELEX IDs (likely) due to TypeError:")
     print(
         '"TypeError: Incorrect format used for image. Should be an url linking to'
         ' an image, a base64 string, a local path, or a PIL image."'
