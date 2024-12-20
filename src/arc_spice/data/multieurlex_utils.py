@@ -13,6 +13,7 @@ ARTICLE_1_MARKERS = {
     "en": "\nArticle 1\n",
     "fr": "\nArticle premier\n",
     "de": "\nArtikel 1\n",
+    "ro": "\nArticolul 1\n",
 }
 
 
