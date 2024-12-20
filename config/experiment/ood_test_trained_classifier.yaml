@@ -1,4 +1,4 @@
-data_config: ood_ro_to_en
+data_config: ood_de_to_en
 
 pipeline_config: roberta-mt5-trained
 
