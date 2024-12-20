@@ -294,17 +294,18 @@ class RTCVariationalPipelineBase(ABC):
         """
         out = self.ocr(inp["ocr_images"])  # type: ignore[misc]
         text = " ".join([itm["generated_text"] for itm in out])
+        max_scores = [output_batch["raw_output"]["max_scores"] for output_batch in out]
         return {
             "outputs": [
                 {
                     "target": target,
                     "generated_text": gen_text["generated_text"],
                     "entropies": gen_text["raw_output"]["entropies"],
-                    "max_scores": gen_text["raw_output"]["max_scores"],
                 }
                 for target, gen_text in zip(inp["ocr_targets"], out, strict=True)
             ],
             "full_output": text,
+            "clean_scores": max_scores,
         }
 
     def translate(self, text: str) -> dict[str, torch.Tensor | str]:
@@ -700,11 +701,11 @@ class CustomOCRPipeline(ImageToTextPipeline):
         )
 
         logits = torch.stack(out.logits, dim=1)
-        softmax = torch.nn.functional.Softmax(dim=-1)
-        max_scores = torch.max(softmax, dim=-1)
-        entropy = Categorical(scores=softmax).entropy() / np.log(logits[0].size()[1])
+        softmax = torch.nn.functional.softmax(logits, dim=-1)
+        max_scores = torch.max(softmax, dim=-1).values.squeeze().tolist()
+        entropy = Categorical(probs=softmax).entropy() / np.log(logits[0].size()[1])
         return {
             "model_output": out.sequences,
             "entropies": entropy.squeeze(),
-            "max_scores": max_scores.squeeze(),
+            "max_scores": max_scores,
         }
