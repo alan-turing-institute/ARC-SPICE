@@ -1,0 +1,11 @@
+data_dir: "data"
+
+level: 1
+
+lang_pair:
+  source: "ro"
+  target: "en"
+
+drop_length: 1000
+
+load_ocr_data: True
