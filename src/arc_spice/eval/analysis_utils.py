@@ -78,7 +78,7 @@ def brier_score(predicted: list, error: list):
 
 
 def get_vectors(
-    all_results: dict, step_key: str, target_celex_ids: None | np.ndarray = None
+    all_results: list[dict], step_key: str, target_celex_ids: None | np.ndarray = None
 ):
     # instantiate lists so we can add elements in custom order if needed
     vector_lengths = (
@@ -163,11 +163,11 @@ analysis_func_map = {
 }
 
 
-def exp_analysis(results_dict: dict, analysis_keys: list):
+def exp_analysis(results_dict: list[dict], analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
 
 
-def exp_vectors(results_dict: dict, analysis_keys: list, **kwargs):
+def exp_vectors(results_dict: list[dict], analysis_keys: list, **kwargs):
     return {
         key: get_vectors(all_results=results_dict, step_key=key, **kwargs)
         for key in analysis_keys
