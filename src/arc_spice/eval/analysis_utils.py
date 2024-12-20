@@ -77,25 +77,48 @@ def brier_score(predicted: list, error: list):
     ).item()
 
 
-def get_vectors(all_results, step_key, target_celex_ids=None):
-    vector_dict = {key: [] for key in next(iter(all_results[0].values()))[step_key]}
-    vector_dict["celex_id"] = []
-    for row_dict in all_results:
-        row_values = next(iter(row_dict.values()))
-        row_celex_id = next(iter(row_dict.keys()))
-        if target_celex_ids:
-            if row_celex_id in target_celex_ids:
-                vector_dict["celex_id"].append(row_celex_id)
-                for key in vector_dict:
-                    if key == "celex_id":
-                        continue
-                    vector_dict[key].append(row_values[step_key][key])
-        else:
-            vector_dict["celex_id"].append(row_celex_id)
+def get_vectors(
+    all_results: dict, step_key: str, target_celex_ids: None | np.ndarray = None
+):
+    # instantiate lists so we can add elements in custom order if needed
+    vector_lengths = (
+        len(all_results) if target_celex_ids is None else len(target_celex_ids)
+    )
+    vector_dict = {
+        key: [None] * vector_lengths
+        for key in next(iter(all_results[0].values()))[step_key]
+    }
+    vector_dict["celex_id"] = [None] * vector_lengths
+
+    if target_celex_ids is not None:
+        # if we have target ids we need to ensure order is maintained across all lists
+        target_celex_ids = target_celex_ids.tolist()
+        for row_dict in all_results:
+            row_values = next(iter(row_dict.values()))
+            row_celex_id = next(iter(row_dict.keys()))
+            try:
+                target_index = target_celex_ids.index(row_celex_id)
+            except ValueError:
+                # skip row if we don't have an index from target ids
+                continue
+            # put all values into the target index position
             for key in vector_dict:
                 if key == "celex_id":
-                    continue
-                vector_dict[key].append(row_values[step_key][key])
+                    # row_values doesn't contain celex_id
+                    vector_dict[key][target_index] = row_celex_id
+                else:
+                    vector_dict[key][target_index] = row_values[step_key][key]
+    else:
+        # otherwise just fill according to non-split order
+        for row_index, row_dict in enumerate(all_results):
+            row_values = next(iter(row_dict.values()))
+            row_celex_id = next(iter(row_dict.keys()))
+            for key in vector_dict:
+                if key == "celex_id":
+                    # row_values doesn't contain celex_id
+                    vector_dict["celex_id"][row_index] = row_celex_id
+                else:
+                    vector_dict[key][row_index] = row_values[step_key][key]
 
     if step_key == "recognition":
         vector_dict["confidence"] = (1 - np.array(vector_dict["mean_entropy"])).tolist()
@@ -129,6 +152,7 @@ def get_vectors(all_results, step_key, target_celex_ids=None):
         vector_dict["hamming_accuracy"] = (
             1 - np.array(vector_dict["hamming_loss"])
         ).tolist()
+
     return vector_dict
 
 
@@ -139,11 +163,11 @@ analysis_func_map = {
 }
 
 
-def exp_analysis(results_dict: list[dict], analysis_keys: list):
+def exp_analysis(results_dict: dict, analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
 
 
-def exp_vectors(results_dict: list[dict], analysis_keys: list, **kwargs):
+def exp_vectors(results_dict: dict, analysis_keys: list, **kwargs):
     return {
         key: get_vectors(all_results=results_dict, step_key=key, **kwargs)
         for key in analysis_keys
