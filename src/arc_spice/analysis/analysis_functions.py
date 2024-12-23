@@ -38,9 +38,7 @@ def single_model_analysis(
     }
 
 
-def error_propagation_analysis(
-    experiment_path: str,
-):
+def error_propagation_analysis(experiment_path: str, **kwargs):
     """
     Run analysis on a given experiment with provided experiment path
 
@@ -56,12 +54,12 @@ def error_propagation_analysis(
     pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
 
     vectors_w_lin, celex_ids = fitted_uq_model(
-        results_dict=exp_vectors(pipeline_results, step_keys)
+        results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
     )
     pipeline_vectors = exp_vectors(
         pipeline_results, step_keys, target_celex_ids=celex_ids["test_ids"]
     )
-    multiplication_vectors = multiplication_prop(pipeline_vectors)
+    multiplication_vectors = multiplication_prop(pipeline_vectors, **kwargs)
     for key in pipeline_vectors:
         pipeline_vectors[key]["linear_confidence"] = vectors_w_lin[key][0]
         pipeline_vectors[key]["multiplication_confidence"] = multiplication_vectors[key]

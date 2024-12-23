@@ -50,6 +50,11 @@ def main(
     ]
     steps = ["recognition", "translation", "classification"]
     propagated_metrics = ["multiplication_confidence", "linear_confidence"]
+    additional_metrics = {
+        "recognition": [],
+        "translation": ["len_norm_cond_prob", "len_norm_confidence"],
+        "classification": ["clean_confidence"],
+    }
 
     pipeline_scores = {}
     for step, target, metric in zip(
@@ -65,8 +70,13 @@ def main(
                 predicted=pipeline_vectors[step][prop_metric],
                 error=pipeline_vectors[step][target],
             )
+        for additional_metric in additional_metrics[step]:
+            pipeline_scores[step][additional_metric] = brier_score(
+                predicted=pipeline_vectors[step][additional_metric],
+                error=pipeline_vectors[step][target],
+            )
 
-    with open(f"{save_path}/raw_results/propagation_scores.json", "w") as f:
+    with open(f"{save_path}/raw_results/propagation_brier_scores.json", "w") as f:
         json.dump(pipeline_scores, f, indent=2)
 
     base_scores = [
@@ -116,6 +126,40 @@ def main(
     base_errors_dataframe = pd.DataFrame(data=base_errors_data)
     with open(f"{save_path}/tables/base_errors.tex", "w+") as table_file:
         table_file.write(base_errors_dataframe.to_latex(index=False))
+
+    # custom metric map example
+    metric_map = {
+        "recognition": "mean_entropy",
+        "translation": "len_norm_cond_prob",
+        "classification": "clean_entropy",
+    }
+
+    pipeline_vectors, translation_vectors, classification_vectors = (
+        error_propagation_analysis(experiment_path, metric_map=metric_map)
+    )
+
+    confidence_targets = ["character_accuracy_rate", "comet_score", "hamming_accuracy"]
+    confidence_metrics = metric_map.values()
+    steps = ["recognition", "translation", "classification"]
+    propagated_metrics = ["multiplication_confidence", "linear_confidence"]
+
+    pipeline_scores = {}
+    for step, target, metric in zip(
+        steps, confidence_targets, confidence_metrics, strict=True
+    ):
+        pipeline_scores[step] = {}
+        pipeline_scores[step][metric] = brier_score(
+            predicted=pipeline_vectors[step][metric],
+            error=pipeline_vectors[step][target],
+        )
+        for prop_metric in propagated_metrics:
+            pipeline_scores[step][prop_metric] = brier_score(
+                predicted=pipeline_vectors[step][prop_metric],
+                error=pipeline_vectors[step][target],
+            )
+
+    with open(f"{save_path}/raw_results/clean_propagation_brier_scores.json", "w") as f:
+        json.dump(pipeline_scores, f, indent=2)
 
 
 if __name__ == "__main__":

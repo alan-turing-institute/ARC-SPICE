@@ -138,6 +138,9 @@ def get_vectors(
             vector_dict["sequence_lengths"],
             vector_dict["mean_entropy"],
         )
+        vector_dict["len_norm_confidence"] = 1 - np.array(
+            vector_dict["len_norm_entropy"]
+        )
 
     elif step_key == "classification":
         # additional measures

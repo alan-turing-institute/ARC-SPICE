@@ -6,7 +6,7 @@ from arc_spice.eval.prop_models import fit_uncertainty_model
 steps = ["recognition", "translation", "classification"]
 
 
-def multiplication_prop(results_dict):
+def multiplication_prop(results_dict, metric_map=None):
     """Compute the naïve approach of multiplying together confidences as though they
     represent independent probabilities of success.
 
@@ -19,19 +19,28 @@ def multiplication_prop(results_dict):
     Returns:
         multiplied results dict, with same structure but updated uq vectors
     """
+    if metric_map is None:
+        metric_map = {
+            "recognition": "mean_entropy",
+            "translation": "weighted_semantic_density",
+            "classification": "mean_predicted_entropy",
+        }
     # split results and fit models
     vectors_dict = {
         "recognition": (
-            1 - np.array(results_dict["recognition"]["mean_entropy"]),
+            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
             1 - np.array(results_dict["recognition"]["character_error_rate"]),
         ),
         "translation": (
-            np.array(results_dict["translation"]["weighted_semantic_density"]),
+            np.array(results_dict["translation"][metric_map["translation"]]),
             np.array(results_dict["translation"]["comet_score"]),
         ),
         "classification": (
-            1 - np.array(results_dict["classification"]["mean_predicted_entropy"]),
-            1 - np.array(results_dict["classification"]["hamming_loss"]),
+            (
+                1
+                - np.array(results_dict["classification"][metric_map["classification"]])
+            ).tolist(),
+            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
         ),
     }
     previous_vec = np.ones_like(np.array(vectors_dict["recognition"][0]))
@@ -42,7 +51,7 @@ def multiplication_prop(results_dict):
     return mult_res
 
 
-def fitted_uq_model(results_dict):
+def fitted_uq_model(results_dict, metric_map=None):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split
 
@@ -56,20 +65,26 @@ def fitted_uq_model(results_dict):
         test results split with uq propagation from fitted model
     """
     # split results and fit models
+    if metric_map is None:
+        metric_map = {
+            "recognition": "mean_entropy",
+            "translation": "weighted_semantic_density",
+            "classification": "mean_predicted_entropy",
+        }
+    # split results and fit models
     vectors_dict = {
         "recognition": (
-            (1 - np.array(results_dict["recognition"]["mean_entropy"])).tolist(),
-            (
-                1 - np.array(results_dict["recognition"]["character_error_rate"])
-            ).tolist(),
+            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
+            1 - np.array(results_dict["recognition"]["character_error_rate"]),
         ),
         "translation": (
-            results_dict["translation"]["weighted_semantic_density"],
-            results_dict["translation"]["comet_score"],
+            np.array(results_dict["translation"][metric_map["translation"]]),
+            np.array(results_dict["translation"]["comet_score"]),
         ),
         "classification": (
             (
-                1 - np.array(results_dict["classification"]["mean_predicted_entropy"])
+                1
+                - np.array(results_dict["classification"][metric_map["classification"]])
             ).tolist(),
             (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
         ),
