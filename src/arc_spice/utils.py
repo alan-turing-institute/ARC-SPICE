@@ -26,7 +26,7 @@ def open_json_path(path: str) -> dict | list:
         return json.load(file)
 
 
-def open_yaml_path(path: str) -> dict | list:
+def open_yaml_path(path: str) -> dict:
     with open(path) as file:
         return yaml.safe_load(file)
 
