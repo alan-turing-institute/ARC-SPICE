@@ -6,6 +6,7 @@ from jsonargparse import CLI
 
 from arc_spice.analysis.analysis_functions import (
     error_propagation_analysis,
+    plot_vectors,
     single_model_analysis,
 )
 from arc_spice.eval.analysis_utils import brier_score
@@ -31,7 +32,15 @@ def main(
     os.makedirs(name=f"{save_path}/tables", exist_ok=True)
     os.makedirs(name=f"{save_path}/raw_results", exist_ok=True)
 
-    pipeline_vectors, _, _ = error_propagation_analysis(experiment_path)
+    pipeline_vectors, translation_vectors, classification_vectors = (
+        error_propagation_analysis(experiment_path)
+    )
+    plot_vectors(
+        save_directory=save_path,
+        pipeline_vectors=pipeline_vectors,
+        translator_vectors=translation_vectors,
+        classifier_vectors=classification_vectors,
+    )
 
     confidence_targets = ["character_accuracy_rate", "comet_score", "hamming_accuracy"]
     confidence_metrics = [

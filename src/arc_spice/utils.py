@@ -21,7 +21,7 @@ def flatten(xss):
     return [x for xs in xss for x in xs]
 
 
-def open_json_path(path: str) -> dict | list:
+def open_json_path(path: str) -> list:
     with open(path) as file:
         return json.load(file)
 
