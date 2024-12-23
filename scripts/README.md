@@ -74,6 +74,16 @@ Run inference on a single component of the pipeline over the MultiEURLEX dataset
 which should be `.yaml` files structured as below. It also takes an additional argument specifying the specific pipeline stage to be evaluated.
 This should be one of `ocr`, `translator`, or `classifier`.
 
+## experiment_analysis.py
+
+Run analysis on a completed experiment. The script takes a single input, which should be the experiment directory on which you want to obtain the results, eg:
+
+`python scripts/experiment_analysis.py outputs/inference_results/l1_fr_to_en/roberta-mt5-zero-shot/finalised_pipeline_zs/seed_42`
+
+This directory should contain: `full_pipeline.json`, `ocr.json`, `translation.json`, `classification.json`.
+
+It produces figures, raw json files, and `.tex` tables, outputted in corresponding directories within a subdirectory `analysis_outputs`. These compare distributions of the confidence with error measures, the average error measures of different stages of the pipeline, and the brier scores of a number of metrics and error propagation models.
+
 ### Dataset config:
 
 ```yaml
