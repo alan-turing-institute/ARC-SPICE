@@ -121,7 +121,9 @@ def get_vectors(
                     vector_dict[key][row_index] = row_values[step_key][key]
 
     if step_key == "recognition":
-        vector_dict["confidence"] = (1 - np.array(vector_dict["mean_entropy"])).tolist()
+        vector_dict["mean_confidence"] = (
+            1 - np.array(vector_dict["mean_entropy"])
+        ).tolist()
         vector_dict["character_accuracy_rate"] = (
             1 - np.array(vector_dict["character_error_rate"])
         ).tolist()
@@ -146,7 +148,7 @@ def get_vectors(
         vector_dict["clean_confidence"] = (
             1 - clean_entropy(vector_dict["clean_scores"])
         ).tolist()
-        vector_dict["confidence"] = (
+        vector_dict["mean_predicted_confidence"] = (
             1 - np.array(vector_dict["mean_predicted_entropy"])
         ).tolist()
         vector_dict["hamming_accuracy"] = (
