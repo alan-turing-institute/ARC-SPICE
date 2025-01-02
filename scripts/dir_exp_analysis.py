@@ -4,8 +4,9 @@ Run the full experiment analysis script for an entire directory.
 
 import os
 
+from experiment_analysis import main as exp_main
 from jsonargparse import CLI
-from scripts.experiment_analysis import main as exp_main
+from tqdm import tqdm
 
 
 def get_paths(output_path: str) -> list[str]:
@@ -38,7 +39,8 @@ def main(output_path: str):
     result_paths = get_paths(output_path)
 
     # run analysis script
-    _ = [exp_main(path) for path in result_paths]
+    for path in tqdm(result_paths):
+        exp_main(path)
 
 
 if __name__ == "__main__":
