@@ -4,6 +4,7 @@ Run the full experiment analysis script for an entire directory.
 
 import os
 
+import numpy as np
 from experiment_analysis import main as exp_main
 from jsonargparse import CLI
 from tqdm import tqdm
@@ -21,10 +22,23 @@ def get_paths(output_path: str) -> list[str]:
     """
     all_paths = [
         os.path.join(dp, f)
-        for dp, dn, fn in os.walk(os.path.expanduser(output_path))
+        for dp, _, fn in os.walk(os.path.expanduser(output_path))
         for f in fn
     ]
-    return [path for path in all_paths if os.path.splitext(path)[-1] == ".json"]
+    res_paths = [
+        os.path.splitext(path)[0]
+        for path in all_paths
+        if os.path.splitext(path)[-1] == ".json"
+    ]
+
+    def get_dirs(path):
+        splits = path.split("/")
+        splits.pop(-1)
+        return "/".join(splits)
+
+    res_dirs = [get_dirs(path) for path in res_paths]
+
+    return np.unique(res_dirs).tolist()
 
 
 def main(output_path: str):
@@ -44,4 +58,5 @@ def main(output_path: str):
 
 
 if __name__ == "__main__":
+    CLI(main)
     CLI(main)
