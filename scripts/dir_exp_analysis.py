@@ -33,10 +33,12 @@ def get_paths(output_path: str) -> list[str]:
 
     def get_dirs(path):
         splits = path.split("/")
+        if "analysis_outputs" in splits:
+            return None
         splits.pop(-1)
         return "/".join(splits)
 
-    res_dirs = [get_dirs(path) for path in res_paths]
+    res_dirs = [get_dirs(path) for path in res_paths if get_dirs(path) is not None]
 
     return np.unique(res_dirs).tolist()
 
@@ -54,7 +56,13 @@ def main(output_path: str):
 
     # run analysis script
     for path in tqdm(result_paths):
-        exp_main(path)
+        if (
+            "full_pipeline.json"
+            and "ocr.json"
+            and "translator.json"
+            and "classifier.json" in os.listdir(path)
+        ):
+            exp_main(path)
 
 
 if __name__ == "__main__":
