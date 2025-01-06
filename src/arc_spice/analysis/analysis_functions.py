@@ -5,7 +5,7 @@ from arc_spice.analysis.prop_models import (
     eval_lin_models,
     eval_mult_prop,
     fit_uncertainty_model,
-    fitted_uq_model,
+    fitted_lin_model,
     multiplication_prop,
 )
 from arc_spice.analysis.utils import (
@@ -102,7 +102,7 @@ def error_propagation_analysis(experiment_path: str, **kwargs):
 
     pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
 
-    vectors_w_lin, celex_ids = fitted_uq_model(
+    vectors_w_lin, celex_ids = fitted_lin_model(
         results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
     )
     pipeline_vectors = exp_vectors(

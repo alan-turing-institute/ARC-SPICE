@@ -126,7 +126,7 @@ def multiplication_prop(results_dict, metric_map=None):
     return mult_res
 
 
-def fitted_uq_model(results_dict, metric_map=None):
+def fitted_lin_model(results_dict, metric_map=None):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split
 
