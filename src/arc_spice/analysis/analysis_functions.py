@@ -1,10 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arc_spice.analysis.utils import (  # fitted_gp_model,
-    fitted_lin_model,
-    multiplication_prop,
-)
+from arc_spice.analysis.utils import fitted_lin_model, multiplication_prop
 from arc_spice.eval.analysis_utils import exp_analysis, exp_vectors
 from arc_spice.utils import open_json_path
 
