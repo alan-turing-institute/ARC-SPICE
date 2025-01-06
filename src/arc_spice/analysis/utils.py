@@ -8,6 +8,29 @@ from arc_spice.eval.translation_error import length_normalised_metric
 steps = ["recognition", "translation", "classification"]
 
 
+def recognition_analysis(all_results):
+    return create_results_dict(*recognition_vectors(all_results))
+
+
+def translation_analysis(all_results):
+    return create_results_dict(*translation_vectors(all_results))
+
+
+def classification_analysis(all_results):
+    return create_results_dict(*classification_vectors(all_results))
+
+
+analysis_func_map = {
+    "ocr": recognition_analysis,
+    "translator": translation_analysis,
+    "classifier": classification_analysis,
+}
+
+
+def exp_analysis(results_dict: dict, analysis_keys: list):
+    return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
+
+
 def brier_score(predicted: list, error: list):
     # do brier score calculation
     return torch.mean(
@@ -203,26 +226,3 @@ def collect_pipeline_dict(
         "translation": translation_vectors(results_dict),
         "classification": classification_vectors(results_dict),
     }
-
-
-def recognition_analysis(all_results):
-    return create_results_dict(*recognition_vectors(all_results))
-
-
-def translation_analysis(all_results):
-    return create_results_dict(*translation_vectors(all_results))
-
-
-def classification_analysis(all_results):
-    return create_results_dict(*classification_vectors(all_results))
-
-
-analysis_func_map = {
-    "ocr": recognition_analysis,
-    "translator": translation_analysis,
-    "classifier": classification_analysis,
-}
-
-
-def exp_analysis(results_dict: dict, analysis_keys: list):
-    return {key: analysis_func_map[key](results_dict) for key in analysis_keys}

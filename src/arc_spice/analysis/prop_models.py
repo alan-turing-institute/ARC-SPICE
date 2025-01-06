@@ -5,6 +5,8 @@ Collecting the propagation models.
 from typing import Any
 
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 from sklearn.linear_model import LinearRegression
 
 from arc_spice.analysis.utils import brier_score, test_train_split_res
@@ -258,3 +260,141 @@ def eval_lin_models(
         "translation": trans_brier,
         "classification": class_brier,
     }
+
+
+def fit_gp_prop(
+    uq_dict,
+    kernel=None,
+    random_state=37,
+):
+    """Recursively fit a Gaussian process based uncertainty propagation model,
+    outputting all three models.
+
+    NB: to use each model requires using the model before it to propagate.
+
+    Args:
+        uq_dict: dictionary of uncertainty quantifications for each stage of pipeline
+                    to fit model with. Dict with structure:
+                    {
+                        'task': (uncertainties vector, error vector)
+                    }
+        kernel: kernel to use for the Gaussian process, if None is given this defaults
+                to DotProduct + WhiteKernel
+        random_state: seed for Gaussian process
+
+    Returns:
+        fit_models_dict: dictionary of fitted models with structure:
+                    {
+                        'task': fitted Gaussian process model
+                    }
+    """
+    # define kernel
+    kernel = kernel if kernel is not None else DotProduct() + WhiteKernel()
+
+    # fit recognition GP
+    X_r, y_r = uq_dict["recognition"]
+    X_r = np.array(X_r).reshape(-1, 1)
+    y_r = np.array(y_r).reshape(-1, 1)
+    gpr_r = GaussianProcessRegressor(kernel=kernel, random_state=random_state).fit(
+        X_r, y_r
+    )
+    pred_err_r = gpr_r.predict(X_r)
+
+    # fit translation GP
+    X_t, y_t = uq_dict["translation"]
+    X_t = np.vstack([pred_err_r, np.array(X_t)]).T
+    y_t = np.array(y_t).reshape(-1, 1)
+    gpr_t = GaussianProcessRegressor(kernel=kernel, random_state=random_state).fit(
+        X_t, y_t
+    )
+    pred_err_t = gpr_t.predict(X_t)
+
+    # fit classificaiton GP
+    X_c, y_c = uq_dict["classificaiton"]
+    X_c = np.vstack([pred_err_t, np.array(X_c)]).T
+    y_c = np.array(y_t).reshape(-1, 1)
+    gpr_c = GaussianProcessRegressor(kernel=kernel, random_state=random_state).fit(
+        X_c, y_c
+    )
+
+    return {"recognition": gpr_r, "translation": gpr_t, "classification": gpr_c}
+
+
+def fitted_gp_model(results_dict, metric_map=None):
+    """Fit the uq models using the fit uncertainty models method on a test/train split,
+    then populate the data with the test split, using a Gaussian Process
+
+    Args:
+        results_dict: collated results dict, with structure:
+                        {
+                            'task': (uq vector, error vector)
+                        }
+        metric_map: _description_. Defaults to None.
+
+    Returns:
+        test results split with uq propagation from fitted model
+    """
+    # split results and fit models
+    if metric_map is None:
+        metric_map = {
+            "recognition": "mean_entropy",
+            "translation": "weighted_semantic_density",
+            "classification": "mean_predicted_entropy",
+        }
+    # split results and fit models
+    vectors_dict = {
+        "recognition": (
+            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
+            1 - np.array(results_dict["recognition"]["character_error_rate"]),
+        ),
+        "translation": (
+            np.array(results_dict["translation"][metric_map["translation"]]),
+            np.array(results_dict["translation"]["comet_score"]),
+        ),
+        "classification": (
+            (
+                1
+                - np.array(results_dict["classification"][metric_map["classification"]])
+            ).tolist(),
+            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
+        ),
+        "celex_ids": (
+            results_dict["classification"]["celex_id"],
+            results_dict["classification"]["celex_id"],
+        ),
+    }
+    train_res, test_res = test_train_split_res(vectors_dict)
+    uq_models = fit_gp_prop(train_res)
+
+    # generated predicted data
+    recog_pred = uq_models["recognition"].predict(
+        np.array(test_res["recognition"][0]).reshape(-1, 1)
+    )
+    trans_pred = uq_models["translation"].predict(
+        np.vstack([recog_pred, np.array(test_res["translation"][0])]).T
+    )
+    class_pred = uq_models["classification"].predict(
+        np.vstack([trans_pred, np.array(test_res["classification"][0])]).T
+    )
+
+    # return collated output
+    return (
+        {
+            "recognition": (
+                recog_pred.reshape(1, -1).squeeze(),
+                test_res["recognition"][1],
+            ),
+            "translation": (
+                trans_pred.reshape(1, -1).squeeze(),
+                test_res["translation"][1],
+            ),
+            "classification": (
+                class_pred.reshape(1, -1).squeeze(),
+                test_res["classification"][1],
+            ),
+        },
+        {
+            "train_ids": train_res["celex_ids"][0],
+            "test_ids": test_res["celex_ids"][0],
+        },
+    )
