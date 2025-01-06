@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arc_spice.analysis.utils import fitted_uq_model, multiplication_prop
+from arc_spice.analysis.utils import (  # fitted_gp_model,
+    fitted_lin_model,
+    multiplication_prop,
+)
 from arc_spice.eval.analysis_utils import exp_analysis, exp_vectors
 from arc_spice.utils import open_json_path
 
@@ -53,7 +56,7 @@ def error_propagation_analysis(experiment_path: str, **kwargs):
 
     pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
 
-    vectors_w_lin, celex_ids = fitted_uq_model(
+    vectors_w_lin, celex_ids = fitted_lin_model(
         results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
     )
     pipeline_vectors = exp_vectors(
@@ -286,6 +289,10 @@ def plot_vectors(
     max_val = max([max(count) for count in counts_list])
     ax1.set_ylim(0, max_val)
     ax2.set_ylim(0, max_val)
+
+    ax1.set_xlim(0, 1)
+    ax2.set_xlim(0, 1)
+    plt.savefig(f"{save_directory}/figures/classification_confidence_histogram.pdf")
 
     ax1.set_xlim(0, 1)
     ax2.set_xlim(0, 1)

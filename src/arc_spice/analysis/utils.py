@@ -140,7 +140,7 @@ def fitted_lin_model(results_dict, metric_map=None):
     )
 
 
-def fited_gp_model(results_dict, metric_map=None):
+def fitted_gp_model(results_dict, metric_map=None):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split, using a Gaussian Process
 
