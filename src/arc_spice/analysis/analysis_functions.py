@@ -157,6 +157,7 @@ def plot_vectors(
     plt.legend()
     plt.xlim(0, 1)
     plt.savefig(f"{save_directory}/figures/recognition_confidence_histogram.pdf")
+    plt.close()
 
     # Translation
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 12))
@@ -257,6 +258,7 @@ def plot_vectors(
     ax1.set_xlim(0, 1)
     ax2.set_xlim(0, 1)
     plt.savefig(f"{save_directory}/figures/translation_confidence_histogram.pdf")
+    plt.close()
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 12))
 
@@ -339,3 +341,4 @@ def plot_vectors(
     ax1.set_xlim(0, 1)
     ax2.set_xlim(0, 1)
     plt.savefig(f"{save_directory}/figures/classification_confidence_histogram.pdf")
+    plt.close()
