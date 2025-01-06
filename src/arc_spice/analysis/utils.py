@@ -207,20 +207,11 @@ def create_results_dict(confidence_vector, accuracy_vector):
 def collect_pipeline_dict(
     results_dict: list[dict],
 ) -> dict[str, tuple[list[float], list[float]]]:
-    """Given a loaded results dict for the entire pipeline collect all three sets of
-    results into a dictionary.
-
-    Args:
-        results_dict: list of dictionaries of the results.
-
-    Returns:
-        dict with structure:
-            {
-                "recognition": recognition results vectors,
-                "translation": translation results vectors,
-                "classification": classification results vectors
-            }
     """
+    Given a loaded results dict for the entire pipeline collect all three sets of
+    results into a dictionary.
+    """
+
     return {
         "recognition": recognition_vectors(results_dict),
         "translation": translation_vectors(results_dict),
