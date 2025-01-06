@@ -224,7 +224,5 @@ analysis_func_map = {
 }
 
 
-def exp_analysis(
-    results_dict: dict[str, tuple[list[float], list[float]]], analysis_keys: list
-):
+def exp_analysis(results_dict: dict, analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}

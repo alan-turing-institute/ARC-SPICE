@@ -67,4 +67,3 @@ def main(output_path: str):
 
 if __name__ == "__main__":
     CLI(main)
-    CLI(main)
