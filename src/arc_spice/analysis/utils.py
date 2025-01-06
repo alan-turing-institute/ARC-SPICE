@@ -1,7 +1,7 @@
 import numpy as np
 
 from arc_spice.eval.analysis_utils import test_train_split_res
-from arc_spice.eval.prop_models import fit_uncertainty_model
+from arc_spice.eval.prop_models import fit_gp_prop, fit_lin_model
 
 steps = ["recognition", "translation", "classification"]
 
@@ -51,7 +51,7 @@ def multiplication_prop(results_dict, metric_map=None):
     return mult_res
 
 
-def fitted_uq_model(results_dict, metric_map=None):
+def fitted_lin_model(results_dict, metric_map=None):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split
 
@@ -94,7 +94,7 @@ def fitted_uq_model(results_dict, metric_map=None):
         ),
     }
     train_res, test_res = test_train_split_res(vectors_dict)
-    uq_models = fit_uncertainty_model(train_res)
+    uq_models = fit_lin_model(train_res)
 
     # generated predicted data
     recog_pred = uq_models["recognition"].predict(
@@ -115,6 +115,86 @@ def fitted_uq_model(results_dict, metric_map=None):
                 np.array(test_res["classification"][0]).reshape(-1, 1),
             )
         )
+    )
+
+    # return collated output
+    return (
+        {
+            "recognition": (
+                recog_pred.reshape(1, -1).squeeze(),
+                test_res["recognition"][1],
+            ),
+            "translation": (
+                trans_pred.reshape(1, -1).squeeze(),
+                test_res["translation"][1],
+            ),
+            "classification": (
+                class_pred.reshape(1, -1).squeeze(),
+                test_res["classification"][1],
+            ),
+        },
+        {
+            "train_ids": train_res["celex_ids"][0],
+            "test_ids": test_res["celex_ids"][0],
+        },
+    )
+
+
+def fited_gp_model(results_dict, metric_map=None):
+    """Fit the uq models using the fit uncertainty models method on a test/train split,
+    then populate the data with the test split, using a Gaussian Process
+
+    Args:
+        results_dict: collated results dict, with structure:
+                        {
+                            'task': (uq vector, error vector)
+                        }
+        metric_map: _description_. Defaults to None.
+
+    Returns:
+        test results split with uq propagation from fitted model
+    """
+    # split results and fit models
+    if metric_map is None:
+        metric_map = {
+            "recognition": "mean_entropy",
+            "translation": "weighted_semantic_density",
+            "classification": "mean_predicted_entropy",
+        }
+    # split results and fit models
+    vectors_dict = {
+        "recognition": (
+            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
+            1 - np.array(results_dict["recognition"]["character_error_rate"]),
+        ),
+        "translation": (
+            np.array(results_dict["translation"][metric_map["translation"]]),
+            np.array(results_dict["translation"]["comet_score"]),
+        ),
+        "classification": (
+            (
+                1
+                - np.array(results_dict["classification"][metric_map["classification"]])
+            ).tolist(),
+            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
+        ),
+        "celex_ids": (
+            results_dict["classification"]["celex_id"],
+            results_dict["classification"]["celex_id"],
+        ),
+    }
+    train_res, test_res = test_train_split_res(vectors_dict)
+    uq_models = fit_gp_prop(train_res)
+
+    # generated predicted data
+    recog_pred = uq_models["recognition"].predict(
+        np.array(test_res["recognition"][0]).reshape(-1, 1)
+    )
+    trans_pred = uq_models["translation"].predict(
+        np.vstack([recog_pred, np.array(test_res["translation"][0])]).T
+    )
+    class_pred = uq_models["classification"].predict(
+        np.vstack([trans_pred, np.array(test_res["classification"][0])]).T
     )
 
     # return collated output
