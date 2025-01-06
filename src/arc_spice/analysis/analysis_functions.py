@@ -1,9 +1,58 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from arc_spice.analysis.utils import fitted_uq_model, multiplication_prop
-from arc_spice.eval.analysis_utils import exp_analysis, exp_vectors
+from arc_spice.analysis.prop_models import (
+    eval_lin_models,
+    eval_mult_prop,
+    fit_uncertainty_model,
+    fitted_uq_model,
+    multiplication_prop,
+)
+from arc_spice.analysis.utils import (
+    collect_pipeline_dict,
+    exp_analysis,
+    exp_vectors,
+    test_train_split_res,
+)
 from arc_spice.utils import open_json_path
+
+
+def propagation_analysis(experiment_path: str):
+    """Run analysis of a given pipeline experiment using the different propagation
+    models
+
+    Args:
+        experiment_path: path experiment directory
+    """
+    model_keys = ["ocr", "translator", "classifier"]
+
+    # collect and collate results
+    pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
+    pipe_results = collect_pipeline_dict(pipeline_results)
+
+    # no model results, rename keys
+    no_mod_res = exp_analysis(pipe_results, model_keys)
+    no_mod_res["recognition"] = no_mod_res.pop("ocr")
+    no_mod_res["translation"] = no_mod_res.pop("translator")
+    no_mod_res["classification"] = no_mod_res.pop("classifier")
+
+    # multplication model resuls
+    multi_mod_res = eval_mult_prop(pipe_results)
+
+    # fitted model results
+    train_res, test_res = test_train_split_res(pipe_results)
+    fitted_uq_models = fit_uncertainty_model(train_res)
+    fit_mod_res = eval_lin_models(fitted_uq_models, test_res)
+
+    # collate results
+    out_res = {}
+    for key, itm in fit_mod_res.items():
+        out_res[key] = {
+            "no_model": no_mod_res[key],
+            "mult_model": multi_mod_res[key],
+            "fitted_model": itm,
+        }
+    return out_res
 
 
 def single_model_analysis(
