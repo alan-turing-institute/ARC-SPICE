@@ -128,6 +128,56 @@ def multiplication_prop(results_dict, metric_map=None):
     return mult_res
 
 
+def fit_lin_model(
+    uq_dict: dict[str, tuple[list[float], list[float]]],
+) -> dict[str, LinearRegression]:
+    """Recursively fit an uncertainty propagation model, outputting all three models.
+    Model looks like:
+
+        final_uq = E*(C*(A*OCR_uq + B) + D*translation_uq) + F*classification_uq
+
+    where A, B, C, D, E and F will all be fit.
+
+    NB: this is currently specific to our current pipeline of:
+
+        recognition -> translation -> classification
+
+    Args:
+        uq_dict: dictionary of uncertainty quantifications for each stage of pipeline
+                    to fit model with. Dict with structure:
+                    {
+                        'task': (uncertainties vector, error vector)
+                    }
+
+    Returns:
+        fit_models_dict: dictionary of fitted models with structure:
+                    {
+                        'task': fitted linear model
+                    }
+    """
+    # fit recognition step
+    x1 = np.array(uq_dict["recognition"][0]).reshape(-1, 1)
+    y1 = np.array(uq_dict["recognition"][1]).reshape(-1, 1)
+    reg1 = LinearRegression(fit_intercept=True).fit(x1, y1)
+
+    # fit translation step
+    x2 = np.column_stack(
+        (reg1.predict(x1), np.array(uq_dict["translation"][0]).reshape(-1, 1))
+    )
+    y2 = np.array(uq_dict["translation"][1]).reshape(-1, 1)
+    reg2 = LinearRegression(fit_intercept=False).fit(x2, y2)
+
+    # fit classification step
+    x3 = np.column_stack(
+        (reg2.predict(x2), np.array(uq_dict["classification"][0]).reshape(-1, 1))
+    )
+    y3 = np.array(uq_dict["classification"][1]).reshape(-1, 1)
+    reg3 = LinearRegression(fit_intercept=False).fit(x3, y3)
+
+    # return fitted models
+    return {"recognition": reg1, "translation": reg2, "classification": reg3}
+
+
 def fitted_lin_model(results_dict, metric_map=None):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split
