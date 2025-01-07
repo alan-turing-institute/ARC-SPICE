@@ -9,7 +9,7 @@ from arc_spice.analysis.analysis_functions import (
     plot_vectors,
     single_model_analysis,
 )
-from arc_spice.eval.analysis_utils import brier_score
+from arc_spice.analysis.utils import brier_score
 
 
 def main(
