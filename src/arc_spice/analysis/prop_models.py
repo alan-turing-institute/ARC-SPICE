@@ -9,7 +9,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 from sklearn.linear_model import LinearRegression
 
-from arc_spice.analysis.utils import brier_score, test_train_split_res
+from arc_spice.analysis.utils import mean_square_error, test_train_split_res
 
 
 def eval_mult_prop(
@@ -29,7 +29,7 @@ def eval_mult_prop(
     mult_res = multiplication_prop(results_dict)
     out = {}
     for key, itm in results_dict.items():
-        out[key] = brier_score(mult_res[key], itm[1])
+        out[key] = mean_square_error(mult_res[key], itm[1])
     return out
 
 
@@ -83,6 +83,54 @@ def fit_uncertainty_model(
     return {"recognition": reg1, "translation": reg2, "classification": reg3}
 
 
+def _custom_vectors_dict(results_dict, metric_map, celex_ids=False):
+    initial_dict = {
+        "recognition": (
+            np.array(results_dict["recognition"][metric_map["recognition"][0]]),
+            np.array(results_dict["recognition"][metric_map["recognition"][1]]),
+        ),
+        "translation": (
+            np.array(results_dict["translation"][metric_map["translation"][0]]),
+            np.array(results_dict["translation"][metric_map["translation"][1]]),
+        ),
+        "classification": (
+            (np.array(results_dict["classification"][metric_map["classification"][0]])),
+            (np.array(results_dict["classification"][metric_map["classification"][1]])),
+        ),
+    }
+
+    if celex_ids:
+        initial_dict["celex_ids"] = (
+            results_dict["classification"]["celex_id"],
+            results_dict["classification"]["celex_id"],
+        )
+    return initial_dict
+
+
+def _standard_vectors_dict(results_dict, celex_ids=False):
+    # split results and fit models
+    initial_dict = {
+        "recognition": (
+            1 - np.array(results_dict["recognition"]["mean_entropy"]),
+            1 - np.array(results_dict["recognition"]["character_error_rate"]),
+        ),
+        "translation": (
+            np.array(results_dict["translation"]["weighted_semantic_density"]),
+            np.array(results_dict["translation"]["comet_score"]),
+        ),
+        "classification": (
+            1 - np.array(results_dict["classification"]["mean_predicted_entropy"]),
+            1 - np.array(results_dict["classification"]["hamming_loss"]),
+        ),
+    }
+    if celex_ids:
+        initial_dict["celex_ids"] = (
+            results_dict["classification"]["celex_id"],
+            results_dict["classification"]["celex_id"],
+        )
+    return initial_dict
+
+
 def multiplication_prop(results_dict, metric_map=None):
     """Compute the naïve approach of multiplying together confidences as though they
     represent independent probabilities of success.
@@ -97,29 +145,10 @@ def multiplication_prop(results_dict, metric_map=None):
         multiplied results dict, with same structure but updated uq vectors
     """
     if metric_map is None:
-        metric_map = {
-            "recognition": "mean_entropy",
-            "translation": "weighted_semantic_density",
-            "classification": "mean_predicted_entropy",
-        }
-    # split results and fit models
-    vectors_dict = {
-        "recognition": (
-            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
-            1 - np.array(results_dict["recognition"]["character_error_rate"]),
-        ),
-        "translation": (
-            np.array(results_dict["translation"][metric_map["translation"]]),
-            np.array(results_dict["translation"]["comet_score"]),
-        ),
-        "classification": (
-            (
-                1
-                - np.array(results_dict["classification"][metric_map["classification"]])
-            ).tolist(),
-            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
-        ),
-    }
+        vectors_dict = _standard_vectors_dict(results_dict)
+    else:
+        vectors_dict = _custom_vectors_dict(results_dict, metric_map)
+
     previous_vec = np.ones_like(np.array(vectors_dict["recognition"][0]))
     mult_res = {}
     for step_key in list(vectors_dict.keys()):
@@ -178,7 +207,10 @@ def fit_lin_model(
     return {"recognition": reg1, "translation": reg2, "classification": reg3}
 
 
-def fitted_lin_model(results_dict, metric_map=None):
+def fitted_lin_model(
+    results_dict,
+    **kwargs,
+):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split
 
@@ -192,35 +224,12 @@ def fitted_lin_model(results_dict, metric_map=None):
         test results split with uq propagation from fitted model
     """
     # split results and fit models
+    metric_map = kwargs.pop("metric_map", None)
     if metric_map is None:
-        metric_map = {
-            "recognition": "mean_entropy",
-            "translation": "weighted_semantic_density",
-            "classification": "mean_predicted_entropy",
-        }
-    # split results and fit models
-    vectors_dict = {
-        "recognition": (
-            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
-            1 - np.array(results_dict["recognition"]["character_error_rate"]),
-        ),
-        "translation": (
-            np.array(results_dict["translation"][metric_map["translation"]]),
-            np.array(results_dict["translation"]["comet_score"]),
-        ),
-        "classification": (
-            (
-                1
-                - np.array(results_dict["classification"][metric_map["classification"]])
-            ).tolist(),
-            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
-        ),
-        "celex_ids": (
-            results_dict["classification"]["celex_id"],
-            results_dict["classification"]["celex_id"],
-        ),
-    }
-    train_res, test_res = test_train_split_res(vectors_dict)
+        vectors_dict = _standard_vectors_dict(results_dict, celex_ids=True)
+    else:
+        vectors_dict = _custom_vectors_dict(results_dict, metric_map, celex_ids=True)
+    train_res, test_res = test_train_split_res(vectors_dict, **kwargs)
     uq_models = fit_uncertainty_model(train_res)
 
     # generated predicted data
@@ -283,7 +292,7 @@ def eval_lin_models(
     # recognition step
     x1 = np.array(test_uq["recognition"][0]).reshape(-1, 1)
     pred1 = lin_uq_models["recognition"].predict(x1)
-    recog_brier = brier_score(pred1.reshape(1, -1), test_uq["recognition"][1])
+    recog_brier = mean_square_error(pred1.reshape(1, -1), test_uq["recognition"][1])
 
     # translation step
     x2 = np.column_stack(
@@ -293,7 +302,7 @@ def eval_lin_models(
         )
     )
     pred2 = lin_uq_models["translation"].predict(x2)
-    trans_brier = brier_score(pred2.reshape(1, -1), test_uq["translation"][1])
+    trans_brier = mean_square_error(pred2.reshape(1, -1), test_uq["translation"][1])
 
     # classification step
     x3 = np.column_stack(
@@ -303,7 +312,7 @@ def eval_lin_models(
         )
     )
     pred3 = lin_uq_models["classification"].predict(x3)
-    class_brier = brier_score(pred3.reshape(1, -1), test_uq["classification"][1])
+    class_brier = mean_square_error(pred3.reshape(1, -1), test_uq["classification"][1])
 
     return {
         "recognition": recog_brier,
@@ -360,7 +369,7 @@ def fit_gp_prop(
     pred_err_t = gpr_t.predict(X_t)
 
     # fit classificaiton GP
-    X_c, y_c = uq_dict["classificaiton"]
+    X_c, y_c = uq_dict["classification"]
     X_c = np.vstack([pred_err_t, np.array(X_c)]).T
     y_c = np.array(y_t).reshape(-1, 1)
     gpr_c = GaussianProcessRegressor(kernel=kernel, random_state=random_state).fit(
@@ -370,7 +379,7 @@ def fit_gp_prop(
     return {"recognition": gpr_r, "translation": gpr_t, "classification": gpr_c}
 
 
-def fitted_gp_model(results_dict, metric_map=None):
+def fitted_gp_model(results_dict, **kwargs):
     """Fit the uq models using the fit uncertainty models method on a test/train split,
     then populate the data with the test split, using a Gaussian Process
 
@@ -385,36 +394,13 @@ def fitted_gp_model(results_dict, metric_map=None):
         test results split with uq propagation from fitted model
     """
     # split results and fit models
+    metric_map = kwargs.pop("metric_map", None)
     if metric_map is None:
-        metric_map = {
-            "recognition": "mean_entropy",
-            "translation": "weighted_semantic_density",
-            "classification": "mean_predicted_entropy",
-        }
-    # split results and fit models
-    vectors_dict = {
-        "recognition": (
-            1 - np.array(results_dict["recognition"][metric_map["recognition"]]),
-            1 - np.array(results_dict["recognition"]["character_error_rate"]),
-        ),
-        "translation": (
-            np.array(results_dict["translation"][metric_map["translation"]]),
-            np.array(results_dict["translation"]["comet_score"]),
-        ),
-        "classification": (
-            (
-                1
-                - np.array(results_dict["classification"][metric_map["classification"]])
-            ).tolist(),
-            (1 - np.array(results_dict["classification"]["hamming_loss"])).tolist(),
-        ),
-        "celex_ids": (
-            results_dict["classification"]["celex_id"],
-            results_dict["classification"]["celex_id"],
-        ),
-    }
+        vectors_dict = _standard_vectors_dict(results_dict, celex_ids=True)
+    else:
+        vectors_dict = _custom_vectors_dict(results_dict, metric_map, celex_ids=True)
     train_res, test_res = test_train_split_res(vectors_dict)
-    uq_models = fit_gp_prop(train_res)
+    uq_models = fit_gp_prop(train_res, **kwargs)
 
     # generated predicted data
     recog_pred = uq_models["recognition"].predict(

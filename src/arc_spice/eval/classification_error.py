@@ -59,3 +59,13 @@ def clean_entropy(clean_scores):
         / math.log(2)
     )
     return torch.mean(clean_entropies, dim=-1)
+
+
+def max_scores(clean_scores):
+    stacked_scores = torch.stack(
+        [torch.tensor(row_scores) for row_scores in clean_scores]
+    )
+    stacked_scores = torch.where(
+        stacked_scores > 0.5, stacked_scores, 1 - stacked_scores
+    )
+    return torch.mean(stacked_scores, dim=-1)

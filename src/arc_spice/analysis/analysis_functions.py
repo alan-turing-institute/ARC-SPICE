@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.gaussian_process.kernels import RBF
 
 from arc_spice.analysis.prop_models import (
     eval_lin_models,
     eval_mult_prop,
     fit_uncertainty_model,
+    fitted_gp_model,
     fitted_lin_model,
     multiplication_prop,
 )
@@ -102,26 +104,44 @@ def error_propagation_analysis(experiment_path: str, **kwargs):
 
     pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
 
-    vectors_w_lin, celex_ids = fitted_lin_model(
+    vectors_w_lin, lin_celex_ids = fitted_lin_model(
         results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
     )
+    vectors_w_gp, gp_celex_ids = fitted_gp_model(
+        results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
+    )
+
+    kwargs["kernel"] = RBF(length_scale_bounds=[1e-175, 100])
+    vectors_w_gp_rbf, gp_rbf_celex_ids = fitted_gp_model(
+        results_dict=exp_vectors(pipeline_results, step_keys),
+        **kwargs,
+    )
+    kwargs.pop("kernel")
+
+    for lin_id, gp_id, gp_rbf_id in zip(
+        lin_celex_ids, gp_celex_ids, gp_rbf_celex_ids, strict=True
+    ):
+        assert lin_id == gp_id == gp_rbf_id
+
     pipeline_vectors = exp_vectors(
-        pipeline_results, step_keys, target_celex_ids=celex_ids["test_ids"]
+        pipeline_results, step_keys, target_celex_ids=lin_celex_ids["test_ids"]
     )
     multiplication_vectors = multiplication_prop(pipeline_vectors, **kwargs)
     for key in pipeline_vectors:
         pipeline_vectors[key]["linear_confidence"] = vectors_w_lin[key][0]
+        pipeline_vectors[key]["gaussian_lin_confidence"] = vectors_w_gp[key][0]
+        pipeline_vectors[key]["gaussian_rbf_confidence"] = vectors_w_gp_rbf[key][0]
         pipeline_vectors[key]["multiplication_confidence"] = multiplication_vectors[key]
 
     classifier_vectors = exp_vectors(
         open_json_path(f"{experiment_path}/classifier.json"),
         ["classification"],
-        target_celex_ids=celex_ids["test_ids"],
+        target_celex_ids=lin_celex_ids["test_ids"],
     )
     translation_vectors = exp_vectors(
         open_json_path(f"{experiment_path}/translator.json"),
         ["translation"],
-        target_celex_ids=celex_ids["test_ids"],
+        target_celex_ids=lin_celex_ids["test_ids"],
     )
     return pipeline_vectors, translation_vectors, classifier_vectors
 
@@ -149,7 +169,13 @@ def plot_vectors(
     plt.hist(
         pipeline_vectors["recognition"]["linear_confidence"],
         alpha=alph,
-        label="linear fit",
+        label="Linear fit",
+        bins=n_bins,
+    )
+    plt.hist(
+        pipeline_vectors["recognition"]["gaussian_confidence"],
+        alpha=alph,
+        label="Gaussian fit",
         bins=n_bins,
     )
     plt.xlabel("Score")
@@ -212,6 +238,14 @@ def plot_vectors(
         alpha=alph,
         label="linear fit",
         color="C5",
+        bins=np.linspace(0, 1, n_bins),
+    )
+    counts_list.append(counts)
+    counts, _, _ = ax1.hist(
+        pipeline_vectors["translation"]["gaussian_confidence"],
+        alpha=alph,
+        label="Gaussian fit",
+        color="C6",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
@@ -304,6 +338,14 @@ def plot_vectors(
         alpha=alph,
         color="C4",
         label="Linear Fit",
+        bins=np.linspace(0, 1, n_bins),
+    )
+    counts_list.append(counts)
+    counts, _, _ = ax1.hist(
+        pipeline_vectors["translation"]["gaussian_confidence"],
+        alpha=alph,
+        label="Gaussian fit",
+        color="C6",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)

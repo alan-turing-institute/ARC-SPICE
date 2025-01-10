@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 
-from arc_spice.eval.classification_error import clean_entropy
+from arc_spice.eval.classification_error import clean_entropy, max_scores
 from arc_spice.eval.translation_error import length_normalised_metric
 
 steps = ["recognition", "translation", "classification"]
@@ -31,7 +31,7 @@ def exp_analysis(results_dict: dict, analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
 
 
-def brier_score(predicted: list, error: list):
+def mean_square_error(predicted: list, error: list):
     # do brier score calculation
     return torch.mean(
         torch.pow((torch.tensor(predicted) - torch.tensor(error)), 2)
@@ -118,6 +118,8 @@ def get_vectors(
         vector_dict["hamming_accuracy"] = (
             1 - np.array(vector_dict["hamming_loss"])
         ).tolist()
+        vector_dict["clean_predicted_scores"] = max_scores(vector_dict["clean_scores"])
+        vector_dict["mean_predicted_scores"] = max_scores(vector_dict["mean_scores"])
 
     return vector_dict
 
@@ -199,7 +201,9 @@ def classification_vectors(all_results: list[dict]):
 
 def create_results_dict(confidence_vector, accuracy_vector):
     return {
-        "brier_score": brier_score(predicted=confidence_vector, error=accuracy_vector),
+        "mean_square_error": mean_square_error(
+            predicted=confidence_vector, error=accuracy_vector
+        ),
         "mean_accuracy": sum(accuracy_vector) / len(accuracy_vector),
     }
 
