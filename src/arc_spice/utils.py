@@ -1,24 +1,30 @@
 import json
 import os
 import random
+from collections.abc import Iterable
 from datetime import datetime
 
 import numpy as np
 import torch
 import yaml
 
+# def flatten(xss):
+#     """
+#     flattens a list
 
-def flatten(xss):
-    """
-    flattens a list
+#     Args:
+#         xss: list of nested lists
 
-    Args:
-        xss: list of nested lists
+#     Returns:
+#         flattened list
+#     """
+#     return [x for xs in xss for x in xs]
 
-    Returns:
-        flattened list
-    """
-    return [x for xs in xss for x in xs]
+
+def flatten(x):
+    if isinstance(x, Iterable):
+        return [a for i in x for a in flatten(i)]
+    return [x]
 
 
 def open_json_path(path: str):

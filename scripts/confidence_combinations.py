@@ -27,22 +27,22 @@ def main(experiment_path: str):
     save_path = f"{experiment_path}/analysis_outputs"
     metrics = {
         "recognition": [
+            ("mean_scores", "character_accuracy_rate", "S"),
             ("mean_confidence", "character_accuracy_rate", "ME"),
-            # ("mean_scores", "character_accuracy_rate"),
         ],
         "translation": [
             ("weighted_semantic_density", "comet_score", "SD"),
             (
                 "len_norm_cond_prob",
                 "comet_score",
-                r"$p(\boldsymbol{y}_{i}|\boldsymbol{x})$",
+                "P",
             ),
             ("len_norm_confidence", "comet_score", "CE"),
         ],
         "classification": [
             ("clean_confidence", "hamming_accuracy", "CE"),
             ("mean_predicted_confidence", "hamming_accuracy", "ME"),
-            ("mean_predicted_scores", "hamming_accuracy", r"$\sigma$"),
+            ("mean_predicted_scores", "hamming_accuracy", "S"),
         ],
     }
 
@@ -106,37 +106,36 @@ def main(experiment_path: str):
                 )
 
         all_combination_results.append(combination_scores)
-        base_scores.append(
-            tuple(
-                round(math.sqrt(combination_scores[step][metric_map[step][0]]), 3)
-                for step in steps
-            )
+        b_scores = tuple(
+            round(math.sqrt(combination_scores[step][metric_map[step][0]]), 3)
+            for step in steps
+        )
+        base_scores.append((round(sum(b_scores) / len(b_scores), 3), b_scores[-1]))
+        m_scores = tuple(
+            round(math.sqrt(combination_scores[step]["multiplication_confidence"]), 3)
+            for step in steps
         )
         multiplation_scores.append(
-            tuple(
-                round(
-                    math.sqrt(combination_scores[step]["multiplication_confidence"]), 3
-                )
-                for step in steps
-            )
+            (round(sum(m_scores) / len(m_scores), 3), m_scores[-1])
         )
-        linear_scores.append(
-            tuple(
-                round(math.sqrt(combination_scores[step]["linear_confidence"]), 3)
-                for step in steps
-            )
+        l_scores = tuple(
+            round(math.sqrt(combination_scores[step]["linear_confidence"]), 3)
+            for step in steps
+        )
+        linear_scores.append((round(sum(l_scores) / len(l_scores), 3), l_scores[-1]))
+        g_l_scores = tuple(
+            round(math.sqrt(combination_scores[step]["gaussian_lin_confidence"]), 3)
+            for step in steps
         )
         gaussian_lin_scores.append(
-            tuple(
-                round(math.sqrt(combination_scores[step]["gaussian_lin_confidence"]), 3)
-                for step in steps
-            )
+            (round(sum(g_l_scores) / len(g_l_scores), 3), g_l_scores[-1])
+        )
+        g_r_scores = tuple(
+            round(math.sqrt(combination_scores[step]["gaussian_rbf_confidence"]), 3)
+            for step in steps
         )
         gaussian_rbf_scores.append(
-            tuple(
-                round(math.sqrt(combination_scores[step]["gaussian_rbf_confidence"]), 3)
-                for step in steps
-            )
+            (round(sum(g_r_scores) / len(g_r_scores), 3), g_r_scores[-1])
         )
 
     propagation_data = {
@@ -149,12 +148,18 @@ def main(experiment_path: str):
     }
 
     propagation_dataframe = pd.DataFrame(data=propagation_data)
-    with open(f"{save_path}/tables/propagation_combinations.tex", "w+") as table_file:
+    with open(
+        f"{save_path}/tables/propagation_combinations_new.tex", "w+"
+    ) as table_file:
         table_file.write(
             propagation_dataframe.to_latex(
                 index=False,
                 label="tab:propagation_combinations",
-                caption="RMSE Propagation Combinations",
+                caption=(
+                    "RMSE Propagation Combinations for various confience metrics,"
+                    " left value is the average RMSE across all steps, right value"
+                    " is the RMSE for the classification step."
+                ),
             )
         )
 

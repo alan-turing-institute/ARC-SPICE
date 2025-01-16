@@ -3,6 +3,7 @@ import torch
 from sklearn.model_selection import train_test_split
 
 from arc_spice.eval.classification_error import clean_entropy, max_scores
+from arc_spice.eval.recognition_error import recognition_mean_scores
 from arc_spice.eval.translation_error import length_normalised_metric
 
 steps = ["recognition", "translation", "classification"]
@@ -88,6 +89,9 @@ def get_vectors(
         vector_dict["character_accuracy_rate"] = (
             1 - np.array(vector_dict["character_error_rate"])
         ).tolist()
+        vector_dict["mean_scores"] = recognition_mean_scores(
+            vector_dict["clean_scores"]
+        )
 
     elif step_key == "translation":
         # additional measures

@@ -153,7 +153,7 @@ def plot_vectors(
     n_bins = 75
 
     # recognition
-    plt.title("Recognition")
+    # plt.title("Recognition")
     plt.hist(
         pipeline_vectors["recognition"]["mean_confidence"],
         alpha=alph,
@@ -172,12 +172,12 @@ def plot_vectors(
         label="Linear fit",
         bins=n_bins,
     )
-    plt.hist(
-        pipeline_vectors["recognition"]["gaussian_confidence"],
-        alpha=alph,
-        label="Gaussian fit",
-        bins=n_bins,
-    )
+    # plt.hist(
+    #     pipeline_vectors["recognition"]["gaussian_lin_confidence"],
+    #     alpha=alph,
+    #     label="Gaussian fit",
+    #     bins=n_bins,
+    # )
     plt.xlabel("Score")
     plt.ylabel("Count")
     plt.legend()
@@ -208,28 +208,28 @@ def plot_vectors(
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["len_norm_cond_prob"],
-        alpha=alph,
-        label="LNCP",
-        color="C2",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
-    counts, _, _ = ax1.hist(
-        1 - pipeline_vectors["translation"]["len_norm_entropy"],
-        alpha=alph,
-        label="LNE",
-        color="C3",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax1.hist(
+    #     pipeline_vectors["translation"]["len_norm_cond_prob"],
+    #     alpha=alph,
+    #     label="LNCP",
+    #     color="C2",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
+    # counts, _, _ = ax1.hist(
+    #     1 - pipeline_vectors["translation"]["len_norm_entropy"],
+    #     alpha=alph,
+    #     label="LNE",
+    #     color="C3",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
 
     counts, _, _ = ax1.hist(
         pipeline_vectors["translation"]["multiplication_confidence"],
         alpha=alph,
         label="multiplication",
-        color="C4",
+        color="C2",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
@@ -237,18 +237,18 @@ def plot_vectors(
         pipeline_vectors["translation"]["linear_confidence"],
         alpha=alph,
         label="linear fit",
-        color="C5",
+        color="C3",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["gaussian_confidence"],
-        alpha=alph,
-        label="Gaussian fit",
-        color="C6",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax1.hist(
+    #     pipeline_vectors["translation"]["gaussian_lin_confidence"],
+    #     alpha=alph,
+    #     label="Gaussian fit",
+    #     color="C6",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
 
     counts, _, _ = ax2.hist(
         translator_vectors["translation"]["weighted_semantic_density"],
@@ -257,22 +257,22 @@ def plot_vectors(
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax2.hist(
-        translator_vectors["translation"]["len_norm_cond_prob"],
-        alpha=alph,
-        label="LNCP",
-        color="C2",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
-    counts, _, _ = ax2.hist(
-        1 - translator_vectors["translation"]["len_norm_entropy"],
-        alpha=alph,
-        label="LNE",
-        color="C3",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax2.hist(
+    #     translator_vectors["translation"]["len_norm_cond_prob"],
+    #     alpha=alph,
+    #     label="LNCP",
+    #     color="C2",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
+    # counts, _, _ = ax2.hist(
+    #     1 - translator_vectors["translation"]["len_norm_entropy"],
+    #     alpha=alph,
+    #     label="LNE",
+    #     color="C3",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
     counts, _, _ = ax2.hist(
         translator_vectors["translation"]["comet_score"],
         alpha=alph,
@@ -317,18 +317,18 @@ def plot_vectors(
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax1.hist(
-        pipeline_vectors["classification"]["clean_confidence"],
-        alpha=alph,
-        color="C2",
-        label="Clean Confidence",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax1.hist(
+    #     pipeline_vectors["classification"]["clean_confidence"],
+    #     alpha=alph,
+    #     color="C2",
+    #     label="Clean Confidence",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
     counts, _, _ = ax1.hist(
         pipeline_vectors["classification"]["multiplication_confidence"],
         alpha=alph,
-        color="C3",
+        color="C2",
         label="Multiplication",
         bins=np.linspace(0, 1, n_bins),
     )
@@ -336,19 +336,19 @@ def plot_vectors(
     counts, _, _ = ax1.hist(
         pipeline_vectors["classification"]["linear_confidence"],
         alpha=alph,
-        color="C4",
+        color="C3",
         label="Linear Fit",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["gaussian_confidence"],
-        alpha=alph,
-        label="Gaussian fit",
-        color="C6",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax1.hist(
+    #     pipeline_vectors["translation"]["gaussian_lin_confidence"],
+    #     alpha=alph,
+    #     label="Gaussian fit",
+    #     color="C6",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
     counts, _, _ = ax2.hist(
         classifier_vectors["classification"]["hamming_accuracy"],
         alpha=alph,
@@ -363,13 +363,13 @@ def plot_vectors(
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
-    counts, _, _ = ax2.hist(
-        classifier_vectors["classification"]["clean_confidence"],
-        alpha=alph,
-        color="C2",
-        bins=np.linspace(0, 1, n_bins),
-    )
-    counts_list.append(counts)
+    # counts, _, _ = ax2.hist(
+    #     classifier_vectors["classification"]["clean_confidence"],
+    #     alpha=alph,
+    #     color="C2",
+    #     bins=np.linspace(0, 1, n_bins),
+    # )
+    # counts_list.append(counts)
     ax1.legend(title="Metric")
 
     ax2.set_xlabel("Score")

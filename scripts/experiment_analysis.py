@@ -52,7 +52,7 @@ def main(
     propagated_metrics = [
         "multiplication_confidence",
         "linear_confidence",
-        "gaussian_confidence",
+        "gaussian_lin_confidence",
     ]
     additional_metrics = {
         "recognition": [],
@@ -92,7 +92,9 @@ def main(
         pipeline_scores[step]["multiplication_confidence"] for step in steps
     ]
     linear_scores = [pipeline_scores[step]["linear_confidence"] for step in steps]
-    gaussian_scores = [pipeline_scores[step]["gaussian_confidence"] for step in steps]
+    gaussian_scores = [
+        pipeline_scores[step]["gaussian_lin_confidence"] for step in steps
+    ]
     propagation_data = {
         "Steps": steps,
         "Base Score": base_scores,
@@ -153,7 +155,7 @@ def main(
     propagated_metrics = [
         "multiplication_confidence",
         "linear_confidence",
-        "gaussian_confidence",
+        "gaussian_lin_confidence",
     ]
 
     pipeline_scores = {}
