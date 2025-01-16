@@ -27,8 +27,8 @@ def main(experiment_path: str):
     save_path = f"{experiment_path}/analysis_outputs"
     metrics = {
         "recognition": [
-            ("mean_scores", "character_accuracy_rate", "S"),
             ("mean_confidence", "character_accuracy_rate", "ME"),
+            ("mean_scores", "character_accuracy_rate", "S"),
         ],
         "translation": [
             ("weighted_semantic_density", "comet_score", "SD"),
