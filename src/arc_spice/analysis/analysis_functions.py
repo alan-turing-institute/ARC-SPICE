@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.gaussian_process.kernels import RBF
@@ -89,6 +91,51 @@ def single_model_analysis(
     }
 
 
+def k_fold_error_propagation_analysis(
+    experiment_path: str,
+    **kwargs,
+):
+    """
+    ------------- WIP ----------------
+
+    Run error propagation k times for a given experiment with provided experiment path
+
+    Args:
+        experiment_path: path to experiment directory containing:
+        - full_pipeline.json
+        - ocr.json
+        - translator.json
+        - classifier.json
+    """
+    step_keys = ["recognition", "translation", "classification"]
+
+    pipeline_results = open_json_path(f"{experiment_path}/full_pipeline.json")
+
+    vectors_w_lin, lin_celex_ids = fitted_lin_model(
+        results_dict=exp_vectors(pipeline_results, step_keys), **kwargs
+    )
+    kwargs.pop("splits")
+    pipeline_vectors = exp_vectors(
+        pipeline_results, step_keys, target_celex_ids=lin_celex_ids["test_ids"]
+    )
+    multiplication_vectors = multiplication_prop(pipeline_vectors, **kwargs)
+    for key in pipeline_vectors:
+        pipeline_vectors[key]["linear_confidence"] = vectors_w_lin[key][0]
+        pipeline_vectors[key]["multiplication_confidence"] = multiplication_vectors[key]
+
+    classifier_vectors = exp_vectors(
+        open_json_path(f"{experiment_path}/classifier.json"),
+        ["classification"],
+        target_celex_ids=lin_celex_ids["test_ids"],
+    )
+    translation_vectors = exp_vectors(
+        open_json_path(f"{experiment_path}/translator.json"),
+        ["translation"],
+        target_celex_ids=lin_celex_ids["test_ids"],
+    )
+    return pipeline_vectors, translation_vectors, classifier_vectors
+
+
 def error_propagation_analysis(experiment_path: str, **kwargs):
     """
     Run analysis on a given experiment with provided experiment path
@@ -146,6 +193,85 @@ def error_propagation_analysis(experiment_path: str, **kwargs):
     return pipeline_vectors, translation_vectors, classifier_vectors
 
 
+def plot_error_propagation(all_propagation_results, save_directory, combination_keys):
+    os.makedirs(
+        f"{save_directory}/figures/propagation_mean_square_errors/", exist_ok=True
+    )
+    for combination_key in combination_keys:
+        propagation_results = all_propagation_results[combination_key]
+        no_model = (
+            np.array(
+                [
+                    np.mean(next(iter(step.values())))
+                    for step in propagation_results.values()
+                ]
+            ),
+            np.array(
+                [
+                    np.std(next(iter(step.values())))
+                    for step in propagation_results.values()
+                ]
+            ),
+        )
+
+        mult_model = (
+            np.array(
+                [
+                    np.mean(step["multiplication_confidence"])
+                    for step in propagation_results.values()
+                ]
+            ),
+            np.array(
+                [
+                    np.std(step["multiplication_confidence"])
+                    for step in propagation_results.values()
+                ]
+            ),
+        )
+        linear_model = (
+            np.array(
+                [
+                    np.mean(step["linear_confidence"])
+                    for step in propagation_results.values()
+                ]
+            ),
+            np.array(
+                [
+                    np.std(step["linear_confidence"])
+                    for step in propagation_results.values()
+                ]
+            ),
+        )
+
+        plt.plot([0, 1, 2], no_model[0], label="No Model")
+        plt.fill_between(
+            [0, 1, 2], no_model[0] - no_model[1], no_model[0] + no_model[1], alpha=0.2
+        )
+        plt.plot([0, 1, 2], mult_model[0], label="Multiplication Model")
+        plt.fill_between(
+            [0, 1, 2],
+            mult_model[0] - mult_model[1],
+            mult_model[0] + mult_model[1],
+            alpha=0.2,
+        )
+        plt.plot([0, 1, 2], linear_model[0], label="Linear Model")
+        plt.fill_between(
+            [0, 1, 2],
+            linear_model[0] - linear_model[1],
+            linear_model[0] + linear_model[1],
+            alpha=0.2,
+        )
+        plt.legend()
+        plt.xticks([0, 1, 2], labels=["Recognition", "Translation", "Classification"])
+        plt.xlabel("Step")
+        plt.ylabel("RMSE")
+        plt.savefig(
+            f"{save_directory}/figures/propagation_mean_square_errors/"
+            f"{combination_key}.pdf"
+        )
+        plt.close()
+
+
 def plot_vectors(
     save_directory, pipeline_vectors, translator_vectors, classifier_vectors
 ):
@@ -153,17 +279,16 @@ def plot_vectors(
     n_bins = 75
 
     # recognition
-    # plt.title("Recognition")
-    plt.hist(
-        pipeline_vectors["recognition"]["mean_confidence"],
-        alpha=alph,
-        label="Mean Entropy",
-        bins=n_bins,
-    )
     plt.hist(
         pipeline_vectors["recognition"]["character_accuracy_rate"],
         alpha=alph,
         label="CER",
+        bins=n_bins,
+    )
+    plt.hist(
+        pipeline_vectors["recognition"]["mean_confidence"],
+        alpha=alph,
+        label="Mean Entropy",
         bins=n_bins,
     )
     plt.hist(
@@ -186,7 +311,7 @@ def plot_vectors(
     plt.close()
 
     # Translation
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 12))
+    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(8, 12))
 
     counts_list = []
     ax1.set_title("Pipeline", fontsize=20)
@@ -228,7 +353,7 @@ def plot_vectors(
     counts, _, _ = ax1.hist(
         pipeline_vectors["translation"]["multiplication_confidence"],
         alpha=alph,
-        label="multiplication",
+        label="Multiplication",
         color="C2",
         bins=np.linspace(0, 1, n_bins),
     )
@@ -236,7 +361,7 @@ def plot_vectors(
     counts, _, _ = ax1.hist(
         pipeline_vectors["translation"]["linear_confidence"],
         alpha=alph,
-        label="linear fit",
+        label="Linear fit",
         color="C3",
         bins=np.linspace(0, 1, n_bins),
     )
@@ -281,11 +406,11 @@ def plot_vectors(
     )
     counts_list.append(counts)
 
-    ax2.set_xlabel("Score")
-    ax1.set_ylabel("Count")
-    ax2.set_ylabel("Count")
+    ax1.set_xlabel("Score", fontsize=18)
+    ax1.set_ylabel("Count", fontsize=18)
+    ax2.set_ylabel("Count", fontsize=18)
     ax1.legend(title="Metric")
-    max_val = max([max(count) for count in counts_list])
+    max_val = max([max(count) for count in counts_list]) + 10
     ax1.set_ylim(0, max_val)
     ax2.set_ylim(0, max_val)
 
@@ -294,7 +419,7 @@ def plot_vectors(
     plt.savefig(f"{save_directory}/figures/translation_confidence_histogram.pdf")
     plt.close()
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 12))
+    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(8, 12))
 
     counts_list = []
     ax1.set_title("Pipeline", fontsize=20)
@@ -372,11 +497,11 @@ def plot_vectors(
     # counts_list.append(counts)
     ax1.legend(title="Metric")
 
-    ax2.set_xlabel("Score")
-    ax1.set_ylabel("Count")
-    ax2.set_ylabel("Count")
+    ax1.set_xlabel("Score", fontsize=18)
+    ax1.set_ylabel("Count", fontsize=18)
+    ax2.set_ylabel("Count", fontsize=18)
     ax1.legend(title="Metric")
-    max_val = max([max(count) for count in counts_list])
+    max_val = max([max(count) for count in counts_list]) + 10
     ax1.set_ylim(0, max_val)
     ax2.set_ylim(0, max_val)
 

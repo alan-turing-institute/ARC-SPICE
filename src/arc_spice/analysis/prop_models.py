@@ -9,7 +9,11 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 from sklearn.linear_model import LinearRegression
 
-from arc_spice.analysis.utils import mean_square_error, test_train_split_res
+from arc_spice.analysis.utils import (
+    custom_split,
+    mean_square_error,
+    test_train_split_res,
+)
 
 
 def eval_mult_prop(
@@ -229,7 +233,12 @@ def fitted_lin_model(
         vectors_dict = _standard_vectors_dict(results_dict, celex_ids=True)
     else:
         vectors_dict = _custom_vectors_dict(results_dict, metric_map, celex_ids=True)
-    train_res, test_res = test_train_split_res(vectors_dict, **kwargs)
+
+    splits = kwargs.pop("splits", None)
+    if splits:
+        train_res, test_res = custom_split(vectors_dict, splits)
+    else:
+        train_res, test_res = test_train_split_res(vectors_dict, **kwargs)
     uq_models = fit_uncertainty_model(train_res)
 
     # generated predicted data
@@ -399,7 +408,16 @@ def fitted_gp_model(results_dict, **kwargs):
         vectors_dict = _standard_vectors_dict(results_dict, celex_ids=True)
     else:
         vectors_dict = _custom_vectors_dict(results_dict, metric_map, celex_ids=True)
-    train_res, test_res = test_train_split_res(vectors_dict)
+
+    splits = kwargs.pop("splits", None)
+    if splits:
+        train_res, test_res = custom_split(vectors_dict, splits)
+    else:
+        train_res, test_res = test_train_split_res(
+            vectors_dict,
+            seed=kwargs.get("seed"),  # type: ignore  # noqa: PGH003
+        )
+
     uq_models = fit_gp_prop(train_res, **kwargs)
 
     # generated predicted data

@@ -32,11 +32,19 @@ def exp_analysis(results_dict: dict, analysis_keys: list):
     return {key: analysis_func_map[key](results_dict) for key in analysis_keys}
 
 
-def mean_square_error(predicted: list, error: list):
+def mean_square_error(predicted, error):
     # do brier score calculation
-    return torch.mean(
-        torch.pow((torch.tensor(predicted) - torch.tensor(error)), 2)
-    ).item()
+    if isinstance(predicted, torch.Tensor):
+        predicted = predicted.clone().detach()
+    else:
+        predicted = torch.tensor(predicted)
+
+    if isinstance(error, torch.Tensor):
+        error = error.clone().detach()
+    else:
+        error = torch.tensor(error)
+
+    return torch.mean(torch.pow((predicted - error), 2)).item()
 
 
 def get_vectors(
@@ -128,8 +136,19 @@ def get_vectors(
     return vector_dict
 
 
+def custom_split(results_dict, splits: dict[str, list[int]]):
+    train_res = {}
+    test_res = {}
+    for key, itm in results_dict.items():
+        split = np.column_stack(itm)
+        train_res[key] = (split[splits["train"], 0], split[splits["train"], 1])
+        test_res[key] = (split[splits["test"], 0], split[splits["test"], 1])
+    return train_res, test_res
+
+
 def test_train_split_res(
-    results_dict: dict[str, tuple[list[float], list[float]]], seed: int = 37
+    results_dict: dict[str, tuple[list[float], list[float]]],
+    seed: int = 37,
 ) -> tuple[
     dict[str, tuple[list[float], list[float]]],
     dict[str, tuple[list[float], list[float]]],
