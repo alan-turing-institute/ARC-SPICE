@@ -135,10 +135,6 @@ def main(
     with open(f"{save_path}/tables/base_errors.tex", "w+") as table_file:
         table_file.write(base_errors_dataframe.to_latex(index=False))
 
-    # custom metric map example
-
-    # THIS IS CURRENTLY NOT WORKING AS EXPECTED #
-
     metric_map = {
         "recognition": ("mean_confidence", "character_accuracy_rate"),
         "translation": ("len_norm_cond_prob", "comet_score"),

@@ -279,56 +279,63 @@ def plot_vectors(
     n_bins = 75
 
     # recognition
+    _, _ = plt.subplots(1, 1, figsize=(8, 6))
+    plt.title("Recognition - CER vs Mean Entropy", fontsize=20)
     plt.hist(
-        pipeline_vectors["recognition"]["character_accuracy_rate"],
+        1 - np.array(pipeline_vectors["recognition"]["character_accuracy_rate"]),
         alpha=alph,
         label="CER",
         bins=n_bins,
     )
     plt.hist(
-        pipeline_vectors["recognition"]["mean_confidence"],
+        1 - np.array(pipeline_vectors["recognition"]["mean_confidence"]),
         alpha=alph,
         label="Mean Entropy",
         bins=n_bins,
     )
-    plt.hist(
-        pipeline_vectors["recognition"]["linear_confidence"],
-        alpha=alph,
-        label="Linear fit",
-        bins=n_bins,
-    )
+    # plt.hist(
+    #     1 - np.array(pipeline_vectors["recognition"]["linear_confidence"]),
+    #     alpha=alph,
+    #     color="C3",
+    #     label="Linear Fit",
+    #     bins=n_bins,
+    # )
     # plt.hist(
     #     pipeline_vectors["recognition"]["gaussian_lin_confidence"],
     #     alpha=alph,
     #     label="Gaussian fit",
     #     bins=n_bins,
     # )
-    plt.xlabel("Score")
-    plt.ylabel("Count")
+    plt.xlabel("Score", fontsize=18)
+    plt.ylabel("Count", fontsize=18)
     plt.legend()
-    plt.xlim(0, 1)
+    # plt.xlim(0, 1)
     plt.savefig(f"{save_directory}/figures/recognition_confidence_histogram.pdf")
     plt.close()
 
     # Translation
-    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(8, 12))
+    fig1, (ax2) = plt.subplots(1, 1, figsize=(8, 6))
+    fig2, (ax1) = plt.subplots(1, 1, figsize=(8, 6))
 
     counts_list = []
-    ax1.set_title("Pipeline", fontsize=20)
-    ax2.set_title("Single Component", fontsize=20)
+    ax1.set_title(
+        "Translation - 1-COMET vs 1-SD vs Propagation Models",
+        fontsize=20,
+    )
+    ax2.set_title("Translation - 1-COMET vs 1-SD", fontsize=20)
 
     counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["comet_score"],
+        1 - np.array(pipeline_vectors["translation"]["comet_score"]),
         alpha=alph,
-        label="Comet score",
+        label="1 - COMET",
         color="C0",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
     counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["weighted_semantic_density"],
+        1 - np.array(pipeline_vectors["translation"]["weighted_semantic_density"]),
         alpha=alph,
-        label="Semantic Density",
+        label="1 - SD",
         color="C1",
         bins=np.linspace(0, 1, n_bins),
     )
@@ -351,15 +358,15 @@ def plot_vectors(
     # counts_list.append(counts)
 
     counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["multiplication_confidence"],
+        1 - np.array(pipeline_vectors["translation"]["multiplication_confidence"]),
         alpha=alph,
-        label="Multiplication",
+        label="Multiplicative",
         color="C2",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
     counts, _, _ = ax1.hist(
-        pipeline_vectors["translation"]["linear_confidence"],
+        1 - np.array(pipeline_vectors["translation"]["linear_confidence"]),
         alpha=alph,
         label="Linear fit",
         color="C3",
@@ -376,7 +383,7 @@ def plot_vectors(
     # counts_list.append(counts)
 
     counts, _, _ = ax2.hist(
-        translator_vectors["translation"]["weighted_semantic_density"],
+        1 - np.array(translator_vectors["translation"]["weighted_semantic_density"]),
         alpha=alph,
         color="C1",
         bins=np.linspace(0, 1, n_bins),
@@ -399,7 +406,7 @@ def plot_vectors(
     # )
     # counts_list.append(counts)
     counts, _, _ = ax2.hist(
-        translator_vectors["translation"]["comet_score"],
+        1 - np.array(translator_vectors["translation"]["comet_score"]),
         alpha=alph,
         color="C0",
         bins=np.linspace(0, 1, n_bins),
@@ -408,6 +415,7 @@ def plot_vectors(
 
     ax1.set_xlabel("Score", fontsize=18)
     ax1.set_ylabel("Count", fontsize=18)
+    ax2.set_xlabel("Score", fontsize=18)
     ax2.set_ylabel("Count", fontsize=18)
     ax1.legend(title="Metric")
     max_val = max([max(count) for count in counts_list]) + 10
@@ -416,29 +424,38 @@ def plot_vectors(
 
     ax1.set_xlim(0, 1)
     ax2.set_xlim(0, 1)
-    plt.savefig(f"{save_directory}/figures/translation_confidence_histogram.pdf")
+    fig1.savefig(
+        f"{save_directory}/figures/translation_confidence_histogram_isolated.pdf"
+    )
+    fig2.savefig(
+        f"{save_directory}/figures/translation_confidence_histogram_pipeline.pdf"
+    )
     plt.close()
 
-    fig, (ax2, ax1) = plt.subplots(2, 1, figsize=(8, 12))
+    # Classification
+    fig1, (ax2) = plt.subplots(1, 1, figsize=(8, 6))
+    fig2, (ax1) = plt.subplots(1, 1, figsize=(8, 6))
 
     counts_list = []
-    ax1.set_title("Pipeline", fontsize=20)
-    ax2.set_title("Single Component", fontsize=20)
+    ax1.set_title(
+        "Classification - HL vs Mean Entropy vs \nPropagation Models", fontsize=20
+    )
+    ax2.set_title("Classification - HL vs Mean Entropy", fontsize=20)
 
     #  Plot classification results
     counts, _, _ = ax1.hist(
-        pipeline_vectors["classification"]["hamming_accuracy"],
+        1 - np.array(pipeline_vectors["classification"]["hamming_accuracy"]),
         alpha=alph,
         color="C0",
-        label="Hamming Accuracy",
+        label="Hamming Loss",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
     counts, _, _ = ax1.hist(
-        pipeline_vectors["classification"]["mean_predicted_confidence"],
+        1 - np.array(pipeline_vectors["classification"]["mean_predicted_confidence"]),
         alpha=alph,
         color="C1",
-        label="Confidence",
+        label="Mean Entropy",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
@@ -451,15 +468,15 @@ def plot_vectors(
     # )
     # counts_list.append(counts)
     counts, _, _ = ax1.hist(
-        pipeline_vectors["classification"]["multiplication_confidence"],
+        1 - np.array(pipeline_vectors["classification"]["multiplication_confidence"]),
         alpha=alph,
         color="C2",
-        label="Multiplication",
+        label="Multiplicative",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
     counts, _, _ = ax1.hist(
-        pipeline_vectors["classification"]["linear_confidence"],
+        1 - np.array(pipeline_vectors["classification"]["linear_confidence"]),
         alpha=alph,
         color="C3",
         label="Linear Fit",
@@ -475,14 +492,14 @@ def plot_vectors(
     # )
     # counts_list.append(counts)
     counts, _, _ = ax2.hist(
-        classifier_vectors["classification"]["hamming_accuracy"],
+        1 - np.array(classifier_vectors["classification"]["hamming_accuracy"]),
         alpha=alph,
         color="C0",
         bins=np.linspace(0, 1, n_bins),
     )
     counts_list.append(counts)
     counts, _, _ = ax2.hist(
-        classifier_vectors["classification"]["mean_predicted_confidence"],
+        1 - np.array(classifier_vectors["classification"]["mean_predicted_confidence"]),
         alpha=alph,
         color="C1",
         bins=np.linspace(0, 1, n_bins),
@@ -500,6 +517,7 @@ def plot_vectors(
     ax1.set_xlabel("Score", fontsize=18)
     ax1.set_ylabel("Count", fontsize=18)
     ax2.set_ylabel("Count", fontsize=18)
+    ax2.set_xlabel("Score", fontsize=18)
     ax1.legend(title="Metric")
     max_val = max([max(count) for count in counts_list]) + 10
     ax1.set_ylim(0, max_val)
@@ -507,5 +525,10 @@ def plot_vectors(
 
     ax1.set_xlim(0, 1)
     ax2.set_xlim(0, 1)
-    plt.savefig(f"{save_directory}/figures/classification_confidence_histogram.pdf")
+    fig1.savefig(
+        f"{save_directory}/figures/classification_confidence_histogram_isolated.pdf"
+    )
+    fig2.savefig(
+        f"{save_directory}/figures/classification_confidence_histogram_pipeline.pdf"
+    )
     plt.close()

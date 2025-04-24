@@ -112,7 +112,10 @@ def main(experiment_path: str):
         )
         base_scores.append((round(sum(b_scores) / len(b_scores), 3), b_scores[-1]))
         m_scores = tuple(
-            round(math.sqrt(combination_scores[step]["multiplication_confidence"]), 3)
+            round(
+                math.sqrt(combination_scores[step]["multiplication_confidence"]),
+                3,
+            )
             for step in steps
         )
         multiplation_scores.append(
